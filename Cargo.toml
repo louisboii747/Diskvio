@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/diskvio-core",
+    "crates/diskvio-cli",
+]
+resolver = "3"
