@@ -33,3 +33,8 @@ rustc-ice-*.txt
 # .NET build outputs
 [Bb]in/
 [Oo]bj/
+
+# Xcode user state and local build products
+**/xcuserdata/
+*.xcuserstate
+DerivedData/

@@ -2,5 +2,6 @@
 members = [
     "crates/diskvio-core",
     "crates/diskvio-cli",
+    "crates/diskvio-ffi",
 ]
 resolver = "3"

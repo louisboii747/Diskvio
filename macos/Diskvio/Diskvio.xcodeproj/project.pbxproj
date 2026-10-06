@@ -1,0 +1,590 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 110;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		4AF5A95B30756F6F008B7DBA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4AF5A94530756F6E008B7DBA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4AF5A94C30756F6E008B7DBA;
+			remoteInfo = Diskvio;
+		};
+		4AF5A96530756F6F008B7DBA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4AF5A94530756F6E008B7DBA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4AF5A94C30756F6E008B7DBA;
+			remoteInfo = Diskvio;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		4AF5A94D30756F6E008B7DBA /* Diskvio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Diskvio.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4AF5A95A30756F6F008B7DBA /* DiskvioTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiskvioTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4AF5A96430756F6F008B7DBA /* DiskvioUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiskvioUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		4AF5A94F30756F6E008B7DBA /* Diskvio */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Diskvio;
+			sourceTree = "<group>";
+		};
+		4AF5A95D30756F6F008B7DBA /* DiskvioTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DiskvioTests;
+			sourceTree = "<group>";
+		};
+		4AF5A96730756F6F008B7DBA /* DiskvioUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DiskvioUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4AF5A94A30756F6E008B7DBA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		4AF5A95730756F6F008B7DBA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		4AF5A96130756F6F008B7DBA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4AF5A94430756F6E008B7DBA = {
+			isa = PBXGroup;
+			children = (
+				4AF5A94F30756F6E008B7DBA /* Diskvio */,
+				4AF5A95D30756F6F008B7DBA /* DiskvioTests */,
+				4AF5A96730756F6F008B7DBA /* DiskvioUITests */,
+				4AF5A94E30756F6E008B7DBA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4AF5A94E30756F6E008B7DBA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4AF5A94D30756F6E008B7DBA /* Diskvio.app */,
+				4AF5A95A30756F6F008B7DBA /* DiskvioTests.xctest */,
+				4AF5A96430756F6F008B7DBA /* DiskvioUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4AF5A94C30756F6E008B7DBA /* Diskvio */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4AF5A96C30756F6F008B7DBA /* Build configuration list for PBXNativeTarget "Diskvio" */;
+			buildPhases = (
+				4AF5A97530756F6F008B7DBA /* Build Rust FFI */,
+				4AF5A94930756F6E008B7DBA /* Sources */,
+				4AF5A94A30756F6E008B7DBA /* Frameworks */,
+				4AF5A94B30756F6E008B7DBA /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				4AF5A94F30756F6E008B7DBA /* Diskvio */,
+			);
+			name = Diskvio;
+			productName = Diskvio;
+			productReference = 4AF5A94D30756F6E008B7DBA /* Diskvio.app */;
+			productType = "com.apple.product-type.application";
+		};
+		4AF5A95930756F6F008B7DBA /* DiskvioTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4AF5A96F30756F6F008B7DBA /* Build configuration list for PBXNativeTarget "DiskvioTests" */;
+			buildPhases = (
+				4AF5A95630756F6F008B7DBA /* Sources */,
+				4AF5A95730756F6F008B7DBA /* Frameworks */,
+				4AF5A95830756F6F008B7DBA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4AF5A95C30756F6F008B7DBA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4AF5A95D30756F6F008B7DBA /* DiskvioTests */,
+			);
+			name = DiskvioTests;
+			productName = DiskvioTests;
+			productReference = 4AF5A95A30756F6F008B7DBA /* DiskvioTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		4AF5A96330756F6F008B7DBA /* DiskvioUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4AF5A97230756F6F008B7DBA /* Build configuration list for PBXNativeTarget "DiskvioUITests" */;
+			buildPhases = (
+				4AF5A96030756F6F008B7DBA /* Sources */,
+				4AF5A96130756F6F008B7DBA /* Frameworks */,
+				4AF5A96230756F6F008B7DBA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4AF5A96630756F6F008B7DBA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4AF5A96730756F6F008B7DBA /* DiskvioUITests */,
+			);
+			name = DiskvioUITests;
+			productName = DiskvioUITests;
+			productReference = 4AF5A96430756F6F008B7DBA /* DiskvioUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4AF5A94530756F6E008B7DBA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					4AF5A94C30756F6E008B7DBA = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					4AF5A95930756F6F008B7DBA = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 4AF5A94C30756F6E008B7DBA;
+					};
+					4AF5A96330756F6F008B7DBA = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 4AF5A94C30756F6E008B7DBA;
+					};
+				};
+			};
+			buildConfigurationList = 4AF5A94830756F6E008B7DBA /* Build configuration list for PBXProject "Diskvio" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 4AF5A94430756F6E008B7DBA;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4AF5A94E30756F6E008B7DBA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4AF5A94C30756F6E008B7DBA /* Diskvio */,
+				4AF5A95930756F6F008B7DBA /* DiskvioTests */,
+				4AF5A96330756F6F008B7DBA /* DiskvioUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4AF5A94B30756F6E008B7DBA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		4AF5A95830756F6F008B7DBA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		4AF5A96230756F6F008B7DBA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4AF5A97530756F6F008B7DBA /* Build Rust FFI */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust FFI";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\nREPO_ROOT=\"$SRCROOT/../..\"\nPROFILE=debug\nif [ \"$CONFIGURATION\" = Release ]; then\n  PROFILE=release\nfi\nLIBRARIES=()\nfor ARCH in $ARCHS; do\n  case \"$ARCH\" in\n    arm64) RUST_TARGET=aarch64-apple-darwin ;;\n    x86_64) RUST_TARGET=x86_64-apple-darwin ;;\n    *) echo \"Unsupported macOS architecture: $ARCH\" >&2; exit 1 ;;\n  esac\n  if [ \"$PROFILE\" = release ]; then\n    cargo build --manifest-path \"$REPO_ROOT/Cargo.toml\" -p diskvio-ffi --target \"$RUST_TARGET\" --release\n  else\n    cargo build --manifest-path \"$REPO_ROOT/Cargo.toml\" -p diskvio-ffi --target \"$RUST_TARGET\"\n  fi\n  LIBRARIES+=(\"$REPO_ROOT/target/$RUST_TARGET/$PROFILE/libdiskvio_ffi.a\")\ndone\nmkdir -p \"$DERIVED_FILE_DIR\"\nif [ \"${#LIBRARIES[@]}\" -eq 1 ]; then\n  cp \"${LIBRARIES[0]}\" \"$DERIVED_FILE_DIR/libdiskvio_ffi.a\"\nelse\n  lipo -create \"${LIBRARIES[@]}\" -output \"$DERIVED_FILE_DIR/libdiskvio_ffi.a\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4AF5A94930756F6E008B7DBA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		4AF5A95630756F6F008B7DBA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		4AF5A96030756F6F008B7DBA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4AF5A95C30756F6F008B7DBA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4AF5A94C30756F6E008B7DBA /* Diskvio */;
+			targetProxy = 4AF5A95B30756F6F008B7DBA /* PBXContainerItemProxy */;
+		};
+		4AF5A96630756F6F008B7DBA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4AF5A94C30756F6E008B7DBA /* Diskvio */;
+			targetProxy = 4AF5A96530756F6F008B7DBA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4AF5A96A30756F6F008B7DBA /* Debug configuration for PBXProject "Diskvio" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		4AF5A96B30756F6F008B7DBA /* Release configuration for PBXProject "Diskvio" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		4AF5A96D30756F6F008B7DBA /* Debug configuration for PBXNativeTarget "Diskvio" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DERIVED_FILE_DIR)",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.Diskvio;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ldiskvio_ffi",
+				);
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/FFI/include";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		4AF5A96E30756F6F008B7DBA /* Release configuration for PBXNativeTarget "Diskvio" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DERIVED_FILE_DIR)",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.Diskvio;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ldiskvio_ffi",
+				);
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/FFI/include";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		4AF5A97030756F6F008B7DBA /* Debug configuration for PBXNativeTarget "DiskvioTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.DiskvioTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/FFI/include";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Diskvio.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Diskvio";
+			};
+			name = Debug;
+		};
+		4AF5A97130756F6F008B7DBA /* Release configuration for PBXNativeTarget "DiskvioTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.DiskvioTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/FFI/include";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Diskvio.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Diskvio";
+			};
+			name = Release;
+		};
+		4AF5A97330756F6F008B7DBA /* Debug configuration for PBXNativeTarget "DiskvioUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.DiskvioUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Diskvio;
+			};
+			name = Debug;
+		};
+		4AF5A97430756F6F008B7DBA /* Release configuration for PBXNativeTarget "DiskvioUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.DiskvioUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Diskvio;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4AF5A94830756F6E008B7DBA /* Build configuration list for PBXProject "Diskvio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4AF5A96A30756F6F008B7DBA /* Debug configuration for PBXProject "Diskvio" */,
+				4AF5A96B30756F6F008B7DBA /* Release configuration for PBXProject "Diskvio" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		4AF5A96C30756F6F008B7DBA /* Build configuration list for PBXNativeTarget "Diskvio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4AF5A96D30756F6F008B7DBA /* Debug configuration for PBXNativeTarget "Diskvio" */,
+				4AF5A96E30756F6F008B7DBA /* Release configuration for PBXNativeTarget "Diskvio" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		4AF5A96F30756F6F008B7DBA /* Build configuration list for PBXNativeTarget "DiskvioTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4AF5A97030756F6F008B7DBA /* Debug configuration for PBXNativeTarget "DiskvioTests" */,
+				4AF5A97130756F6F008B7DBA /* Release configuration for PBXNativeTarget "DiskvioTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		4AF5A97230756F6F008B7DBA /* Build configuration list for PBXNativeTarget "DiskvioUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4AF5A97330756F6F008B7DBA /* Debug configuration for PBXNativeTarget "DiskvioUITests" */,
+				4AF5A97430756F6F008B7DBA /* Release configuration for PBXNativeTarget "DiskvioUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4AF5A94530756F6E008B7DBA /* Project object */;
+	validationLevel = 1;
+}

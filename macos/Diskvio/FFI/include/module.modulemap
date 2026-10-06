@@ -1,0 +1,4 @@
+module DiskvioFFI {
+    header "diskvio_ffi.h"
+    export *
+}
