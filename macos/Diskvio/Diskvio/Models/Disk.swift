@@ -53,7 +53,6 @@ nonisolated struct DiskInventory: Decodable, Sendable {
                 }
                 return node
             }
-            // An unpartitioned physical APFS store may back a container directly.
             for container in apfsContainers where container.physicalStoreIDs.contains(disk.device.identifier) {
                 var node = DeviceNode(id: "\(diskID)/container:\(container.uuid ?? container.device.identifier)", kind: .container, device: container.device, disk: disk)
                 node.container = container
@@ -197,6 +196,10 @@ nonisolated struct DeviceNode: Identifiable, Sendable {
         let capacity = Capacity.string(device.sizeBytes)
         guard kind == .volume else { return capacity }
         return "\(volume?.quotaBytes == nil ? "Shared" : "Limited") \(capacity)"
+    }
+
+    var hasManagementActions: Bool {
+        !(device.actions ?? []).isEmpty || (kind != .disk && disk.device.actions?.contains(.eject) == true)
     }
 
     var flattened: [DeviceNode] { [self] + (children ?? []).flatMap(\.flattened) }

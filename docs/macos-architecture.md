@@ -28,6 +28,18 @@ Known initial appearance notifications do not trigger another scan. Relevant bur
 
 Apple documents the callback and teardown model in its [Disk Arbitration notification guide](https://developer.apple.com/library/archive/documentation/DriversKernelHardware/Conceptual/DiskArbitrationProgGuide/ArbitrationBasics/ArbitrationBasics.html).
 
+## UI layout and extension points
+
+`ContentView` owns the native navigation shell and the existing `DiskStore`. `DeviceSidebar` uses a native `OutlineGroup` in a selectable sidebar List, with stable node IDs independent of disclosure state. Native outline gutters own indentation; row names receive bounded remaining width and truncate at the tail. At narrow widths, captions fall back to capacity while full type/name/identifier information remains in accessibility labels and help. Selection stays in the store rather than in pane layout state.
+
+`WorkspaceLayout` defines a shared width budget: sidebar 260–480 points (ideal 320), central content at least 480, inspector 240–340 (ideal 280). The content minimum is 1040 × 600 points, with a 1280 × 780 default window. The Devices workspace shows an inline, resizable inspector when its own available width is at least 800 points. Otherwise, the same inspector is available from its toolbar button in a scrollable popover. This decision uses workspace width, so hiding or resizing the sidebar naturally changes the space available. It never changes device selection or triggers discovery.
+
+`DeviceWorkspaceView` contains the current device flow, status reporting and inspector presentation. Other major areas can later supply their own workspace through the navigation shell; unfinished areas are not added to the sidebar today. Settings can use a native Settings scene when actual preferences exist. `DeviceCommands` shares the existing capability-driven mount/unmount/eject controls between the toolbar Actions menu and context menus, keeping the toolbar from accumulating unrelated commands.
+
+`PartitionMapLayout` provides immutable physical offsets and bounded fractions independently of SwiftUI rendering. Missing offsets follow the previous partition's reported end, including any leading gap; unknown capacities do not become invented segments. The map and adaptive legend share stable identifiers and colors. The legend provides a selectable text target for every partition, including segments too small to target graphically.
+
+Future partition editing can render a separate proposed layout beside the discovered layout. A future operation flow belongs in its relevant workspace: configure parameters, preview affected devices and changes, explicitly confirm any destructive request, then submit to a tested backend and use the current progress/result reporting path. Discovered inventory must remain separate from a proposed edit. No speculative operation types, draggable handles, destructive controls, or backend commands are introduced by this layout refinement; Rust remains responsible for validating any eventual operation.
+
 ## Operation policy and permissions
 
 `DiskBackend` separates platform discovery and execution. The macOS implementation accepts only mount, unmount, and eject. Swift displays capabilities calculated by Rust; Rust revalidates every request against a fresh inventory. Device identity includes the current IOKit registry entry and available partition/volume UUIDs, so a replacement device reusing a BSD number is rejected. Target metadata and registry identities are checked again immediately before invoking diskutil.

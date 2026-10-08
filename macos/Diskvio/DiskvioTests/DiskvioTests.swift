@@ -1,10 +1,3 @@
-//
-//  DiskvioTests.swift
-//  DiskvioTests
-//
-//  Created by Louis Hinchliffe on 06/10/2026.
-//
-
 import Foundation
 import Testing
 @testable import Diskvio
@@ -103,5 +96,37 @@ struct NotificationTests {
         }
         try await Task.sleep(for: .milliseconds(700))
         #expect(loads.withLock { $0 } == 2)
+    }
+}
+
+struct PartitionMapTests {
+    @Test func fallbackPositionIncludesReportedLeadingGap() throws {
+        var disk = try DiskService.decodeInventory(Data(topologyFixture.utf8)).disks[0]
+        disk.partitions.append(try JSONDecoder().decode(DiskPartition.self, from: Data(#"{"device":{"identifier":"disk2s2","name":"Next","size_bytes":200}}"#.utf8)))
+        let layout = PartitionMapLayout(disk: disk)
+        #expect(layout.segments[0].startBytes == 100)
+        #expect(layout.segments[1].startBytes == 1000)
+        #expect(layout.segments[1].lengthFraction == 0)
+    }
+
+    @Test func outOfBoundsAndUnknownSizesNeverCreateInventedCapacity() throws {
+        let fixture = topologyFixture.replacingOccurrences(of: "\"offset_bytes\":100", with: "\"offset_bytes\":900")
+        var disk = try DiskService.decodeInventory(Data(fixture.utf8)).disks[0]
+        disk.partitions.append(try JSONDecoder().decode(DiskPartition.self, from: Data(#"{"device":{"identifier":"disk2s2","name":"Unknown","size_bytes":null},"offset_bytes":100}"#.utf8)))
+        let layout = PartitionMapLayout(disk: disk)
+        #expect(layout.segments[0].startFraction == 0.9)
+        #expect(layout.segments[0].lengthFraction == 0.1)
+        #expect(layout.segments[1].partition.device.sizeBytes == nil)
+        #expect(layout.segments[1].lengthFraction == 0)
+        #expect(layout.segments.count == 2)
+    }
+
+    @Test func overflowingPartitionEndStaysBounded() throws {
+        let fixture = topologyFixture.replacingOccurrences(of: "\"offset_bytes\":100", with: "\"offset_bytes\":18446744073709551610")
+        var disk = try DiskService.decodeInventory(Data(fixture.utf8)).disks[0]
+        disk.partitions.append(try JSONDecoder().decode(DiskPartition.self, from: Data(#"{"device":{"identifier":"disk2s2","name":"Next","size_bytes":200}}"#.utf8)))
+        let layout = PartitionMapLayout(disk: disk)
+        #expect(layout.segments[1].startBytes == UInt64.max)
+        #expect(layout.segments.allSatisfy { $0.startFraction == 1 && $0.lengthFraction == 0 })
     }
 }

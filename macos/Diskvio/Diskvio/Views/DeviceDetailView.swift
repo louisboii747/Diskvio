@@ -19,7 +19,7 @@ struct DeviceDetailView: View {
                     }
                     Spacer(minLength: 0)
                 }
-                HStack(alignment: .top, spacing: 24) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), alignment: .leading)], alignment: .leading, spacing: 12) {
                     CapacitySummary(label: node.capacityLabel, bytes: node.device.sizeBytes)
                     if let used = node.device.usedBytes {
                         CapacitySummary(label: "Used", bytes: used)
@@ -67,11 +67,12 @@ struct DeviceDetailView: View {
                                 HStack(spacing: 10) {
                                     Image(systemName: child.kind.symbol).foregroundStyle(.secondary).frame(width: 22)
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(child.device.name).fontWeight(.medium)
+                                        Text(child.device.name).fontWeight(.medium).lineLimit(2).multilineTextAlignment(.leading)
                                         Text(child.device.filesystem?.name ?? child.kind.rawValue).font(.caption).foregroundStyle(.secondary)
                                     }
-                                    Spacer()
-                                    Text(child.capacityDescription).monospacedDigit().foregroundStyle(.secondary)
+                                    Spacer(minLength: 8)
+                                    Text(child.capacityDescription).font(.callout).monospacedDigit().foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.trailing)
                                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                                 }
                                 .padding(.vertical, 7)

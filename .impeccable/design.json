@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-08T20:27:28Z",
+  "generatedAt": "2026-10-08T20:54:03Z",
   "title": "Design System: Diskvio",
   "extensions": {
     "native": {
@@ -19,8 +19,8 @@
         },
         {
           "name": "secondary-foreground",
-          "source": ".foregroundStyle(.secondary)",
-          "purpose": "Metadata, captions, supporting symbols and explanations."
+          "source": ".foregroundStyle(.secondary) / unselected sidebar .foregroundColor(.secondary)",
+          "purpose": "Metadata, captions, supporting symbols and explanations; selected sidebar content inherits native selection foreground."
         },
         {
           "name": "tertiary-foreground",
@@ -92,35 +92,64 @@
       ],
       "layoutMetrics": {
         "sidebar": {
-          "minimum": 220,
-          "ideal": 275,
-          "maximum": 400,
-          "source": "ContentView.swift"
+          "minimum": 260,
+          "ideal": 320,
+          "maximum": 480,
+          "source": "Models/WorkspaceLayout.swift",
+          "appliedIn": "ContentView.swift"
         },
         "detail": {
-          "minimum": 350,
-          "source": "ContentView.swift"
+          "minimum": 480,
+          "source": "Models/WorkspaceLayout.swift",
+          "appliedIn": "Views/DeviceWorkspaceView.swift"
         },
         "inspector": {
-          "minimum": 235,
-          "ideal": 275,
-          "maximum": 360,
-          "source": "ContentView.swift"
+          "minimum": 240,
+          "ideal": 280,
+          "maximum": 340,
+          "source": "Models/WorkspaceLayout.swift",
+          "appliedIn": "Views/DeviceWorkspaceView.swift"
         },
         "windowMinimum": {
-          "width": 880,
-          "height": 520,
-          "source": "ContentView.swift"
+          "width": 1040,
+          "height": 600,
+          "source": "ContentView.swift",
+          "widthConstraintSource": "Models/WorkspaceLayout.swift"
         },
         "windowDefault": {
-          "width": 1180,
-          "height": 720,
+          "width": 1280,
+          "height": 780,
           "source": "DiskvioApp.swift"
         },
         "selectedDeviceSymbol": {
           "size": 34,
           "weight": "regular",
           "source": "DeviceDetailView.swift"
+        },
+        "workspaceInspector": {
+          "inlineMinimumWidth": 800,
+          "inlineBudget": "contentMinimum + inspectorIdeal + 40",
+          "narrowPresentation": "Toolbar Inspector command presents the same inspector content in a popover.",
+          "popoverWidth": 340,
+          "popoverMaximumHeight": 600,
+          "popoverHeightRule": "min(workspace height, 600)",
+          "source": "Models/WorkspaceLayout.swift / Views/DeviceWorkspaceView.swift"
+        },
+        "capacitySummaryGrid": {
+          "adaptiveMinimum": 150,
+          "spacing": 12,
+          "source": "Views/DeviceDetailView.swift"
+        },
+        "partitionLegendGrid": {
+          "adaptiveMinimum": 240,
+          "spacing": 12,
+          "source": "Views/PartitionMapView.swift"
+        },
+        "sidebarRow": {
+          "symbolWidth": 18,
+          "horizontalSpacing": 8,
+          "nameLineLimit": 1,
+          "source": "Views/DeviceSidebar.swift"
         }
       },
       "componentDimensions": [
@@ -154,18 +183,47 @@
         "partitionMap": {
           "selectedOpacity": 1,
           "unselectedOpacity": 0.75,
-          "source": "PartitionMapView.swift"
+          "source": "Views/PartitionMapView.swift",
+          "selectedBorderWidth": 2,
+          "selectedBorderForeground": ".primary"
         },
         "nativeControls": "Hover, focus, selection and disabled appearance belong to macOS; no custom transition or shadow is defined.",
         "progress": "SwiftUI ProgressView; small control size for ongoing-operation and sidebar refresh indicators.",
-        "sourceOnlyAccessibility": "Map button labels, hidden decorative icons, grouped inspector labels/values and storage-used labels are present in source; VoiceOver runtime validation remains outstanding."
+        "sourceOnlyAccessibility": "Map button labels, hidden decorative icons, grouped inspector labels/values and storage-used labels are present in source; VoiceOver runtime validation remains outstanding.",
+        "sidebarRow": {
+          "selection": "Selected row symbols and captions inherit native foreground by passing nil to foregroundColor; unselected supporting content uses .secondary.",
+          "captionFit": "ViewThatFits tries kind plus capacity, then capacity alone; the name and fallback caption tail-truncate within the row.",
+          "source": "Views/DeviceSidebar.swift"
+        },
+        "inspector": {
+          "initialInlineVisibility": true,
+          "commandShortcut": "Command-Option-I",
+          "wideCommand": "Toggle the inline inspector.",
+          "narrowCommand": "Toggle the inspector popover.",
+          "widthTransition": "Close a presented popover when the workspace becomes wide enough for the inline inspector.",
+          "source": "Views/DeviceWorkspaceView.swift"
+        }
       },
       "previewPolicy": "HTML/CSS entries are schematic documentation previews using browser system colors and typography. They do not reproduce AppKit colors, SwiftUI text metrics, SF Symbols, interaction behavior, or discovered device data. Native source mappings are authoritative.",
       "evidenceScope": {
-        "basis": "Final source after the finish review shipped the capacity-label and product-persistence fixes.",
+        "basis": "Final SwiftUI source, successful Swift build and 11 passing tests; native layout behavior was observed before the final compact-caption and selected-foreground changes. The independent source review found no material defect; the formal visual finish review awaits recapture because native automation failed globally.",
+        "automated": [
+          "Swift build passed.",
+          "All 11 Swift tests passed."
+        ],
+        "observed": [
+          "Real discovered disk hierarchy, native disclosure and row selection.",
+          "Refresh and partition-map selection.",
+          "Smallest allowed native window.",
+          "Sidebar at its 260-point and 480-point limits.",
+          "Maximized window.",
+          "Keyboard row selection.",
+          "Inspector popover in a narrow workspace."
+        ],
         "unverified": [
+          "Final compact-caption and selected-foreground rendering",
           "Dark-appearance runtime",
-          "Minimum-width and enlarged-text runtime",
+          "Enlarged-text runtime",
           "VoiceOver runtime",
           "Physical USB mount/unmount/eject operations"
         ],
@@ -173,11 +231,46 @@
       },
       "sources": [
         "macos/Diskvio/Diskvio/ContentView.swift",
+        "macos/Diskvio/Diskvio/Models/WorkspaceLayout.swift",
+        "macos/Diskvio/Diskvio/Models/PartitionMapLayout.swift",
         "macos/Diskvio/Diskvio/Models/Disk.swift",
+        "macos/Diskvio/Diskvio/Views/DeviceSidebar.swift",
+        "macos/Diskvio/Diskvio/Views/DeviceWorkspaceView.swift",
+        "macos/Diskvio/Diskvio/Views/DeviceCommands.swift",
         "macos/Diskvio/Diskvio/Views/DeviceDetailView.swift",
         "macos/Diskvio/Diskvio/Views/DeviceInspector.swift",
         "macos/Diskvio/Diskvio/Views/PartitionMapView.swift",
         "macos/Diskvio/Diskvio/DiskvioApp.swift"
+      ],
+      "sourceRelationships": [
+        {
+          "source": "ContentView.swift",
+          "relationship": "Owns DiskStore and the NavigationSplitView shell; embeds DeviceSidebar and DeviceWorkspaceView with WorkspaceLayout constraints."
+        },
+        {
+          "source": "Views/DeviceSidebar.swift",
+          "relationship": "Uses the inventory node hierarchy in a selectable List and OutlineGroup; owns bounded row presentation and contextual commands."
+        },
+        {
+          "source": "Views/DeviceWorkspaceView.swift",
+          "relationship": "Owns toolbar commands, operation/discovery states, DeviceDetailView and inline/popover DeviceInspector presentation."
+        },
+        {
+          "source": "Models/WorkspaceLayout.swift",
+          "relationship": "Defines the window and pane budget plus the inline-inspector width condition."
+        },
+        {
+          "source": "Views/DeviceCommands.swift",
+          "relationship": "Shares real DeviceActionButtons between the toolbar Actions menu and DeviceContextMenu; also defines NoticeView."
+        },
+        {
+          "source": "Models/PartitionMapLayout.swift",
+          "relationship": "Derives immutable physical segments from discovered disk data; PartitionMapView consumes the same segment identity for the track and legend."
+        },
+        {
+          "source": "Views/DeviceDetailView.swift",
+          "relationship": "Presents adaptive capacity summaries, physical map and related devices; map and child buttons update DiskStore selection."
+        }
       ]
     }
   },
@@ -191,21 +284,33 @@
       "nativeSource": "Button { Task { await store.refresh() } } label: { Label(\"Refresh\", systemImage: \"arrow.clockwise\") }.keyboardShortcut(\"r\", modifiers: .command).disabled(store.isBusy).help(\"Refresh device information\")"
     },
     {
+      "name": "Device Actions Menu",
+      "kind": "button",
+      "description": "Native toolbar menu shown only for real available management actions; schematic preview only.",
+      "html": "<button class=\"ds-actions\" type=\"button\" aria-haspopup=\"menu\">Actions</button>",
+      "css": ".ds-actions { color-scheme: light dark; font-family: system-ui; } .ds-actions:hover { cursor: pointer; } .ds-actions:focus-visible { outline: auto; } .ds-actions:active { outline: auto; } .ds-actions:disabled { cursor: default; }",
+      "nativeSource": "if let node = store.selectedNode, node.hasManagementActions { Menu { DeviceActionButtons(node: node, store: store) } label: { Label(\"Actions\", systemImage: \"ellipsis.circle\") }.help(\"Actions for the selected device\") }; DeviceActionButtons uses node.device.actions and supported parent-disk eject capability, with busy-state disabling.",
+      "source": "Views/DeviceWorkspaceView.swift / Views/DeviceCommands.swift"
+    },
+    {
       "name": "Sidebar Device Row",
       "kind": "nav",
-      "description": "Selectable native hierarchy row with name and secondary caption metadata; placeholders do not represent discovered data.",
-      "html": "<button class=\"ds-device-row\" type=\"button\"><span class=\"ds-device-name\">Device name</span><small class=\"ds-device-meta\">Device kind \u00b7 capacity</small></button>",
-      "css": ".ds-device-row { color-scheme: light dark; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding-block: 3px; border: 0; background: Canvas; color: CanvasText; font-family: system-ui; text-align: left; } .ds-device-meta { color: GrayText; } .ds-device-row:hover { cursor: pointer; } .ds-device-row:focus-visible { outline: auto; } .ds-device-row:active { outline: auto; }",
-      "nativeSource": "List(selection: $store.selection) { ... }.listStyle(.sidebar); DisclosureGroup(isExpanded: $expanded) { ... } label: { DeviceRow(node: node) }; Label { VStack(alignment: .leading, spacing: 2) { Text(node.device.name).lineLimit(1); Text(\"\\(node.kind.rawValue) \u00b7 \\(node.capacityDescription)\").font(.caption).foregroundStyle(.secondary).lineLimit(1) } } icon: { Image(systemName: node.kind.symbol) }.padding(.vertical, 3)"
+      "description": "Bounded native OutlineGroup row with adaptive capacity caption and selection foreground inheritance; placeholders do not represent discovered data.",
+      "html": "<button class=\"ds-device-row\" type=\"button\"><span class=\"ds-device-copy\"><span class=\"ds-device-name\">Device name</span><small class=\"ds-device-meta\">Device kind · capacity</small></span></button>",
+      "css": ".ds-device-row { color-scheme: light dark; display: flex; min-width: 0; padding-block: 3px; border: 0; background: Canvas; color: CanvasText; font-family: system-ui; text-align: left; } .ds-device-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; } .ds-device-name, .ds-device-meta { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } .ds-device-meta { color: GrayText; } .ds-device-row:hover { cursor: pointer; } .ds-device-row:focus-visible { outline: auto; } .ds-device-row:active { outline: auto; }",
+      "nativeSource": "List(selection: $store.selection) { Section(\"Storage Devices\") { OutlineGroup(store.nodes, children: \\.children) { node in DeviceRow(node: node, isSelected: store.selection == node.id).tag(node.id).contextMenu { DeviceContextMenu(node: node, store: store) } } } }.listStyle(.sidebar); DeviceRow uses a bounded HStack with an 18-point symbol, one-line tail-truncated name, and ViewThatFits for kind plus capacity or capacity alone. Selected symbols and captions inherit native foreground.",
+      "source": "Views/DeviceSidebar.swift"
     },
     {
       "name": "Capacity Summary",
       "kind": "custom",
-      "description": "Secondary caption above a semantic title-style figure with tabular digits; schematic content placeholder.",
+      "description": "Secondary caption above a semantic title-style figure with tabular digits; pairs flow through an adaptive grid in the detail view.",
       "html": "<div class=\"ds-capacity\"><small class=\"ds-capacity-label\">Capacity</small><span class=\"ds-capacity-value\">Not available</span></div>",
       "css": ".ds-capacity { color-scheme: light dark; display: flex; flex-direction: column; gap: 5px; font-family: system-ui; color: CanvasText; } .ds-capacity-label { color: GrayText; } .ds-capacity-value { font-variant-numeric: tabular-nums; }",
       "nativeSource": "VStack(alignment: .leading, spacing: 5) { Text(label).font(.caption).foregroundStyle(.secondary); Text(Capacity.string(bytes)).font(.title3).monospacedDigit().textSelection(.enabled) }",
-      "nativeCapacitySemantics": "Volume labels are Shared capacity or Capacity limit; available space is Available to volume. Capacity formatting is decimal ByteCountFormatter."
+      "nativeCapacitySemantics": "Volume labels are Shared capacity or Capacity limit; available space is Available to volume. Capacity formatting is decimal ByteCountFormatter.",
+      "nativeLayout": "LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), alignment: .leading)], alignment: .leading, spacing: 12)",
+      "source": "Views/DeviceDetailView.swift"
     },
     {
       "name": "Inspector Property",
@@ -213,7 +318,9 @@
       "description": "Native grouped-form property with selectable, wrapping value and combined accessibility label/value.",
       "html": "<div class=\"ds-property\"><small class=\"ds-property-label\">Identifier</small><span class=\"ds-property-value\">Not available</span></div>",
       "css": ".ds-property { color-scheme: light dark; display: flex; flex-direction: column; gap: 4px; padding-block: 2px; font-family: system-ui; color: CanvasText; } .ds-property-label { color: GrayText; } .ds-property-value { overflow-wrap: anywhere; user-select: text; }",
-      "nativeSource": "Form { Section(\"Device\") { ... }; Section(\"Volume & Storage\") { ... } }.formStyle(.grouped); VStack(alignment: .leading, spacing: 4) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value ?? \"Not available\").textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }.padding(.vertical, 2).accessibilityElement(children: .ignore).accessibilityLabel(title).accessibilityValue(value ?? \"Not available\")"
+      "nativeSource": "Form { Section(\"Device\") { ... }; Section(\"Volume & Storage\") { ... } }.formStyle(.grouped); VStack(alignment: .leading, spacing: 4) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value ?? \"Not available\").textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }.padding(.vertical, 2).accessibilityElement(children: .ignore).accessibilityLabel(title).accessibilityValue(value ?? \"Not available\")",
+      "nativePresentation": "DeviceWorkspaceView presents this same grouped form inline when the pane budget fits, otherwise in the toolbar Inspector popover.",
+      "source": "Views/DeviceInspector.swift / Views/DeviceWorkspaceView.swift"
     },
     {
       "name": "Notice",
@@ -222,17 +329,19 @@
       "description": "Secondary SF Symbol, emphasized title and secondary message on a native quaternary fill; schematic preview.",
       "html": "<div class=\"ds-notice\"><span class=\"ds-notice-title\">Refresh failed</span><small class=\"ds-notice-message\">Failure detail</small></div>",
       "css": ".ds-notice { color-scheme: light dark; display: flex; flex-direction: column; gap: 3px; padding: 12px; background: ButtonFace; color: CanvasText; font-family: system-ui; } .ds-notice-title { font-weight: 500; } .ds-notice-message { color: GrayText; user-select: text; }",
-      "nativeSource": "HStack(alignment: .top, spacing: 8) { Image(systemName: symbol).foregroundStyle(.secondary); VStack(alignment: .leading, spacing: 3) { Text(title).fontWeight(.medium); Text(message).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }; Spacer(minLength: 0) }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(.quaternary)"
+      "nativeSource": "HStack(alignment: .top, spacing: 8) { Image(systemName: symbol).foregroundStyle(.secondary); VStack(alignment: .leading, spacing: 3) { Text(title).fontWeight(.medium); Text(message).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }; Spacer(minLength: 0) }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(.quaternary)",
+      "source": "Views/DeviceCommands.swift"
     },
     {
       "name": "Physical Partition Map",
       "kind": "custom",
       "refersTo": "partition-map",
-      "description": "Physical-byte-scaled partition track with linked text legend; empty schematic preview avoids fabricated partitions.",
+      "description": "Physical-byte-scaled partition track with a linked adaptive text legend; empty schematic preview avoids fabricated partitions.",
       "html": "<div class=\"ds-partition-map\"><strong>Partition Map</strong><div class=\"ds-partition-track\" aria-hidden=\"true\"></div><small class=\"ds-partition-note\">Segment widths show physical partition capacity.</small></div>",
       "css": ".ds-partition-map { color-scheme: light dark; display: flex; flex-direction: column; gap: 12px; font-family: system-ui; color: CanvasText; } .ds-partition-track { height: 38px; border-radius: 5px; background: ButtonFace; overflow: hidden; } .ds-partition-note { color: GrayText; }",
-      "nativeSource": "GeometryReader { geometry in ZStack(alignment: .leading) { Rectangle().fill(.quaternary); ... Button { select(partition.device.identifier) } label: { Rectangle().fill(colors[index % colors.count].opacity(selectedIdentifier == partition.device.identifier ? 1 : 0.75)) }.buttonStyle(.plain).frame(width: geometry.size.width * Double(length) / Double(total)).offset(x: geometry.size.width * Double(min(start, total)) / Double(total)) ... }.clipShape(RoundedRectangle(cornerRadius: 5)) }.frame(height: 38)",
-      "nativeGeometry": "length = min(partition.sizeBytes ?? 0, bytes remaining after start); start uses reported offset, otherwise the sum of prior physical partition sizes. The denominator is the physical disk capacity. The legend uses 8-point circles and the same system hue as its segment."
+      "nativeSource": "PartitionMapLayout(disk: disk) supplies segments to GeometryReader. Track buttons use segment.lengthFraction and segment.startFraction, select(segment.id), system hues by segment.index, opacity 1 or 0.75, and a 2-point primary stroke on selection. LazyVGrid with adaptive minimum 240 supplies a matching button for every segment. The 38-point track clips to RoundedRectangle(cornerRadius: 5).",
+      "nativeGeometry": "PartitionMapLayout accepts a positive physical-disk capacity. Segment start uses the reported offset or prior partition end; missing length preserves that start, and overflow saturates the next end. Start and length fractions clamp to physical-disk bounds. The legend uses 8-point circles and the same system hue as its segment, names up to two lines, identifiers and tabular capacities. It supplies a full-size text target even for tiny physical segments.",
+      "source": "Models/PartitionMapLayout.swift / Views/PartitionMapView.swift"
     }
   ],
   "narrative": {
@@ -255,6 +364,11 @@
         "name": "The Metadata Hierarchy Rule",
         "body": "Keep names and values primary, and use secondary captions for their labels and context.",
         "section": "typography"
+      },
+      {
+        "name": "The Content Width Rule",
+        "body": "Preserve the central workspace's minimum width and move properties to the inspector popover when the inline pane budget does not fit.",
+        "section": "layout"
       },
       {
         "name": "The Physical Scale Rule",

@@ -85,11 +85,15 @@ Semantic text styles remain semantic; this system does not replace them with inf
 
 ## Layout
 
-The native split-view model separates navigation from the active working area. `NavigationSplitView` provides the sidebar, and an `HSplitView` separates the central detail from the optional properties inspector. The detail scrolls vertically, fills available width, and uses a leading alignment. The inspector uses a native grouped `Form`.
+The native split-view model separates navigation from the active working area. `ContentView` owns the `NavigationSplitView`, with `DeviceSidebar` as navigation and `DeviceWorkspaceView` as the working area. The workspace owns its toolbar, status regions, detail, and inspector. `WorkspaceLayout` holds the shared pane budget. The detail scrolls vertically, fills available width, and uses a leading alignment. The inspector uses a native grouped `Form`.
 
 The spacing tokens above are unitless native point values. CSS-compatible dimensions in the frontmatter represent the same logical measurements for documentation previews; the sidecar records their SwiftUI point mappings. Use compact gaps for stacked metadata, the inline and related gaps for associated content, the inset for status and notice regions, and the section gap for central content and capacity groups. There is no universal eight-point grid in the source.
 
-The implemented pane limits, minimum window size, and default window size are recorded in the sidecar as macOS layout metrics, not web breakpoints. Retain resize affordances, the inspector toggle, and scrollable detail content. Minimum-width and enlarged-text behavior still require runtime validation; these measurements are implementation evidence rather than an accessibility guarantee.
+The implemented pane limits, minimum window size, and default window size are recorded in the sidecar as macOS layout metrics. The main content keeps its minimum width. When the workspace can accommodate both panes, an `HSplitView` presents the optional inspector inline; at narrower widths the same Inspector command opens properties in a popover. Capacity summaries and partition legends use adaptive grids so their text remains useful as the detail width changes.
+
+**The Content Width Rule.** Preserve the central workspace's minimum width and move properties to the inspector popover when the inline pane budget does not fit.
+
+Retain resize affordances, the inspector command, and scrollable detail content. The refinement was observed in the smallest allowed native window, at both sidebar limits, in a maximized window, and with the narrow inspector popover. Final compact-caption and selected-foreground changes compiled and passed tests; their screenshot recapture was blocked by native automation failure. Enlarged-text, dark-appearance, and VoiceOver runtime validation remain outstanding; observed resizing does not certify all accessibility states.
 
 ## Elevation & Depth
 
@@ -103,15 +107,15 @@ Native controls own their corners and borders. The custom physical map clips its
 
 ### Buttons and Toolbar
 
-Commands use native `Button` and `Label`, with SF Symbols, descriptive help, and native disabled states. Refresh has the Command-R shortcut. The toolbar also exposes the inspector toggle and available device actions. Child-device rows and map segments use the existing plain button style; preserve native keyboard and focus behavior. Context menus share device actions and provide contextual Finder and identifier commands.
+Commands use native `Button` and `Label`, with SF Symbols, descriptive help, and native disabled states. Refresh has the Command-R shortcut. Inspector has Command-Option-I and toggles the inline pane or opens the narrow-workspace popover. The toolbar groups supported management commands in an Actions menu only when the selected node has real available actions. `DeviceActionButtons` supplies both that menu and `DeviceContextMenu`; the context menu also provides Finder, identifier-copy, and Refresh commands when applicable. Child-device rows and map segments use the existing plain button style; preserve native keyboard and focus behavior.
 
 ### Navigation
 
-The sidebar is a native sidebar-style selectable `List` with nested `DisclosureGroup` branches. Each row combines its device symbol, a single-line name, and secondary caption metadata. Native selection identifies the active node. The row tooltip includes the name and identifier. Hierarchy represents actual physical disk, partition, APFS container, and volume relationships.
+The sidebar is a native sidebar-style selectable `List` with an `OutlineGroup` over the real device hierarchy. Native outline controls own disclosure gutters and indentation. Each bounded row combines its device symbol, a single-line tail-truncated name, and caption metadata. The caption shows kind and capacity when both fit, then retains capacity alone when the row is narrower. Selected symbols and captions inherit the native selection foreground; unselected supporting content uses the secondary foreground. The tooltip and combined accessibility label retain the full name, kind, identifier, and capacity. Hierarchy represents actual physical disk, partition, APFS container, and volume relationships.
 
 ### Capacity Summary
 
-A compact vertical pair places a secondary caption above a title-style capacity value with tabular digits. Decimal byte formatting comes from `ByteCountFormatter`; absent capacities read "Not available". APFS volume totals are explicitly labeled "Shared capacity" or "Capacity limit", and available space is labeled "Available to volume". Retain the supporting explanation that APFS volumes share container free space.
+A compact vertical pair places a secondary caption above a title-style capacity value with tabular digits. The pairs flow through an adaptive grid in `DeviceDetailView`. Decimal byte formatting comes from `ByteCountFormatter`; absent capacities read "Not available". APFS volume totals are explicitly labeled "Shared capacity" or "Capacity limit", and available space is labeled "Available to volume". Retain the supporting explanation that APFS volumes share container free space.
 
 ### Inspector Properties
 
@@ -123,7 +127,9 @@ Notices pair a secondary SF Symbol with a medium-weight title and secondary capt
 
 ### Physical Partition Map
 
-The map's fixed-height track depicts physical partition capacity and offset relative to its physical disk. Segments and legend entries are plain buttons selecting the same partition. Legend names, identifiers, capacity values, tooltips, and accessibility labels accompany color. Neutral track space represents gaps and partition-map metadata. APFS volumes do not receive independent physical-partition segments.
+The map's fixed-height track depicts physical partition capacity and offset relative to its physical disk. `PartitionMapLayout` computes immutable physical segments; `PartitionMapView` uses the same segment identity for geometry, color, track selection, and legend selection. Reported offsets take precedence; missing offsets follow the prior partition's end, and geometry is bounded by the physical disk capacity. Selected segments retain full opacity and a primary-foreground border.
+
+The adaptive legend supplies a full-size text target for every partition, including segments too small to click comfortably. Names can wrap to two lines; identifiers and tabular capacity values accompany each hue. Tooltips and accessibility labels retain partition identity and capacity. Neutral track space represents gaps and partition-map metadata. APFS volumes do not receive independent physical-partition segments.
 
 **The Physical Scale Rule.** Map geometry follows real physical partition bytes and offsets; container and volume sharing remain explicit in text.
 
