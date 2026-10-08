@@ -216,17 +216,38 @@
 		4AF5A97530756F6F008B7DBA /* Build Rust FFI */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
 			name = "Build Rust FFI";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\nREPO_ROOT=\"$SRCROOT/../..\"\nPROFILE=debug\nif [ \"$CONFIGURATION\" = Release ]; then\n  PROFILE=release\nfi\nLIBRARIES=()\nfor ARCH in $ARCHS; do\n  case \"$ARCH\" in\n    arm64) RUST_TARGET=aarch64-apple-darwin ;;\n    x86_64) RUST_TARGET=x86_64-apple-darwin ;;\n    *) echo \"Unsupported macOS architecture: $ARCH\" >&2; exit 1 ;;\n  esac\n  if [ \"$PROFILE\" = release ]; then\n    cargo build --manifest-path \"$REPO_ROOT/Cargo.toml\" -p diskvio-ffi --target \"$RUST_TARGET\" --release\n  else\n    cargo build --manifest-path \"$REPO_ROOT/Cargo.toml\" -p diskvio-ffi --target \"$RUST_TARGET\"\n  fi\n  LIBRARIES+=(\"$REPO_ROOT/target/$RUST_TARGET/$PROFILE/libdiskvio_ffi.a\")\ndone\nmkdir -p \"$DERIVED_FILE_DIR\"\nif [ \"${#LIBRARIES[@]}\" -eq 1 ]; then\n  cp \"${LIBRARIES[0]}\" \"$DERIVED_FILE_DIR/libdiskvio_ffi.a\"\nelse\n  lipo -create \"${LIBRARIES[@]}\" -output \"$DERIVED_FILE_DIR/libdiskvio_ffi.a\"\nfi\n";
+			shellScript = (
+				"set -euo pipefail",
+				"export PATH=\"$HOME/.cargo/bin:$PATH\"",
+				"REPO_ROOT=\"$SRCROOT/../..\"",
+				"PROFILE=debug",
+				"if [ \"$CONFIGURATION\" = Release ]; then",
+				"  PROFILE=release",
+				"fi",
+				"LIBRARIES=()",
+				"for ARCH in $ARCHS; do",
+				"  case \"$ARCH\" in",
+				"    arm64) RUST_TARGET=aarch64-apple-darwin ;;",
+				"    x86_64) RUST_TARGET=x86_64-apple-darwin ;;",
+				"    *) echo \"Unsupported macOS architecture: $ARCH\" >&2; exit 1 ;;",
+				"  esac",
+				"  if [ \"$PROFILE\" = release ]; then",
+				"    cargo build --manifest-path \"$REPO_ROOT/Cargo.toml\" -p diskvio-ffi --target \"$RUST_TARGET\" --release",
+				"  else",
+				"    cargo build --manifest-path \"$REPO_ROOT/Cargo.toml\" -p diskvio-ffi --target \"$RUST_TARGET\"",
+				"  fi",
+				"  LIBRARIES+=(\"$REPO_ROOT/target/$RUST_TARGET/$PROFILE/libdiskvio_ffi.a\")",
+				"done",
+				"mkdir -p \"$DERIVED_FILE_DIR\"",
+				"if [ \"${#LIBRARIES[@]}\" -eq 1 ]; then",
+				"  cp \"${LIBRARIES[0]}\" \"$DERIVED_FILE_DIR/libdiskvio_ffi.a\"",
+				"else",
+				"  lipo -create \"${LIBRARIES[@]}\" -output \"$DERIVED_FILE_DIR/libdiskvio_ffi.a\"",
+				"fi",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -391,7 +412,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -407,12 +428,12 @@
 					"$(DERIVED_FILE_DIR)",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.Diskvio;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ldiskvio_ffi",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.Diskvio;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -433,7 +454,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5Z7PGQ8D6K;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -449,12 +470,12 @@
 					"$(DERIVED_FILE_DIR)",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.Diskvio;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ldiskvio_ffi",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.louisboii747.Diskvio;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

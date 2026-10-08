@@ -18,26 +18,36 @@ struct ContentView: View {
             }
 
             if isLoading {
+                Spacer()
                 ProgressView("Discovering disks…")
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-            }
-
-            List(disks) { disk in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(disk.name)
-                        .font(.headline)
-                    Text("Disk \(disk.number) · \(ByteCountFormatter.string(fromByteCount: Int64(clamping: disk.sizeBytes), countStyle: .decimal)) · \(disk.busType)")
-                        .foregroundStyle(.secondary)
-                    if disk.partitionStyle != "Unknown" {
-                        Text("Partition scheme: \(disk.partitionStyle)")
+                    .frame(maxWidth: .infinity)
+                Spacer()
+            } else if let errorMessage {
+                ContentUnavailableView(
+                    "Disk Discovery Failed",
+                    systemImage: "externaldrive.badge.exclamationmark",
+                    description: Text(errorMessage)
+                )
+            } else if disks.isEmpty {
+                ContentUnavailableView(
+                    "No Physical Disks Found",
+                    systemImage: "externaldrive",
+                    description: Text("Connect a disk and choose Refresh to try again.")
+                )
+            } else {
+                List(disks) { disk in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(disk.name)
+                            .font(.headline)
+                        Text("Disk \(disk.number) · \(ByteCountFormatter.string(fromByteCount: Int64(clamping: disk.sizeBytes), countStyle: .decimal)) · \(disk.busType)")
                             .foregroundStyle(.secondary)
+                        if disk.partitionStyle != "Unknown" {
+                            Text("Partition scheme: \(disk.partitionStyle)")
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
             }
         }
         .padding()
