@@ -19,6 +19,7 @@ name = "diskvio-cli"
 version = "0.1.0"
 dependencies = [
  "diskvio-core",
+ "serde_json",
 ]
 
 [[package]]

@@ -37,3 +37,32 @@ pub fn list_disks() -> Result<Vec<Disk>, Box<dyn std::error::Error>> {
 
     Ok(disks)
 }
+
+pub fn disk_inventory() -> Result<crate::DiskInventory, Box<dyn std::error::Error>> {
+    let disks = list_disks()?
+        .into_iter()
+        .map(|disk| crate::PhysicalDisk {
+            device: crate::Device {
+                identifier: format!("PhysicalDrive{}", disk.number),
+                name: disk.name,
+                size_bytes: Some(disk.size_bytes),
+                ..Default::default()
+            },
+            number: disk.number,
+            partition_scheme: crate::PartitionScheme::from_content(Some(&disk.partition_style)),
+            connection_type: Some(disk.bus_type),
+            internal: None,
+            removable: None,
+            ejectable: None,
+            registry_entry_id: None,
+            partitions: vec![],
+        })
+        .collect();
+    Ok(crate::DiskInventory {
+        disks,
+        apfs_containers: vec![],
+        warnings: vec![
+            "Partition and filesystem exploration is not implemented on Windows yet".into(),
+        ],
+    })
+}

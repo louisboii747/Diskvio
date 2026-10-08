@@ -1,4 +1,4 @@
-use diskvio_core::{Disk, list_disks};
+use diskvio_core::{Disk, disk_inventory, list_disks};
 use serde::Serialize;
 use std::{ffi::CString, os::raw::c_char, panic::catch_unwind, ptr};
 
@@ -21,8 +21,6 @@ fn encode_response(response: &Response) -> Option<*mut c_char> {
     Some(CString::new(json).ok()?.into_raw())
 }
 
-/// Returns a Rust-owned UTF-8 JSON string. The caller must release it with
-/// `diskvio_string_free`. Returns null if a response cannot be encoded.
 #[unsafe(no_mangle)]
 pub extern "C" fn diskvio_list_disks_json() -> *mut c_char {
     let result = catch_unwind(|| {
@@ -43,17 +41,66 @@ pub extern "C" fn diskvio_list_disks_json() -> *mut c_char {
     }
 }
 
-/// Releases a non-null pointer returned by `diskvio_list_disks_json` exactly once.
-/// A null pointer is accepted.
+/// Returns owned UTF-8 topology JSON. Free non-null results exactly once with
+/// `diskvio_string_free`; null indicates encoding failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn diskvio_inventory_json() -> *mut c_char {
+    catch_unwind(|| {
+        let response = match disk_inventory() {
+            Ok(inventory) => serde_json::json!({"status": "ok", "inventory": inventory}),
+            Err(error) => serde_json::json!({"status": "error", "message": error.to_string()}),
+        };
+        CString::new(response.to_string())
+            .ok()
+            .map(CString::into_raw)
+    })
+    .ok()
+    .flatten()
+    .unwrap_or(ptr::null_mut())
+}
+
+/// Returns owned operation-response JSON, freed with `diskvio_string_free`.
 ///
 /// # Safety
-/// `pointer` must be null or an allocation returned by `diskvio_list_disks_json`
-/// that has not already been released.
+/// `request` must be null or point to `length` readable bytes kept alive for this
+/// call. Rust borrows the buffer without retaining or modifying it.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn diskvio_operation_json(request: *const u8, length: usize) -> *mut c_char {
+    let response = catch_unwind(|| {
+        let result = if request.is_null() || length == 0 || length > 16_384 {
+            Err("Invalid operation request buffer".to_owned())
+        } else {
+            // SAFETY: The caller guarantees readable bytes; the checked length
+            // is nonzero, bounded to 16 KiB, and below isize::MAX.
+            let bytes = unsafe { std::slice::from_raw_parts(request, length) };
+            serde_json::from_slice::<diskvio_core::OperationRequest>(bytes)
+                .map_err(|error| format!("Invalid operation request: {error}"))
+                .and_then(|request| diskvio_core::perform_operation(&request))
+        };
+        match result {
+            Ok(outcome) => serde_json::json!({"status": "ok", "operation": outcome}),
+            Err(message) => serde_json::json!({"status": "error", "message": message}),
+        }
+    })
+    .unwrap_or_else(
+        |_| serde_json::json!({"status": "error", "message": "Internal operation error"}),
+    );
+    CString::new(response.to_string())
+        .ok()
+        .map(CString::into_raw)
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Frees a Rust-owned Diskvio JSON response. Null is accepted.
+///
+/// # Safety
+/// `pointer` must be null or a pointer returned by a Diskvio JSON function that
+/// has not already been freed. Release each allocation exactly once.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn diskvio_string_free(pointer: *mut c_char) {
     if !pointer.is_null() {
         let _ = catch_unwind(|| {
-            // SAFETY: The caller contract guarantees ownership and provenance.
+            // SAFETY: The caller transfers the original allocation's ownership.
             unsafe { drop(CString::from_raw(pointer)) };
         });
     }
@@ -81,6 +128,24 @@ mod tests {
         assert_eq!(json["disks"][0]["name"], "Example SSD");
         assert_eq!(json["disks"][0]["size_bytes"], 500_000_000_000_u64);
         unsafe { diskvio_string_free(pointer) };
+    }
+
+    #[test]
+    fn rejects_invalid_operation_buffers_without_system_operations() {
+        for (pointer, length) in [(ptr::null(), 0), (ptr::null(), 16_385)] {
+            let response = unsafe { diskvio_operation_json(pointer, length) };
+            assert!(!response.is_null());
+            let json: serde_json::Value =
+                serde_json::from_slice(unsafe { CStr::from_ptr(response) }.to_bytes()).unwrap();
+            assert_eq!(json["status"], "error");
+            unsafe { diskvio_string_free(response) };
+        }
+        let invalid = b"{\"action\":\"format\",\"identifier\":\"disk0\"}";
+        let response = unsafe { diskvio_operation_json(invalid.as_ptr(), invalid.len()) };
+        let json: serde_json::Value =
+            serde_json::from_slice(unsafe { CStr::from_ptr(response) }.to_bytes()).unwrap();
+        assert_eq!(json["status"], "error");
+        unsafe { diskvio_string_free(response) };
     }
 
     #[test]
