@@ -38,7 +38,7 @@ The MSBuild integration builds `diskvio_ffi.dll` for `x86_64-pc-windows-msvc` in
 
 The app displays **real physical disks** discovered by Rust through Windows `Get-Disk`: device name/identifier, total capacity, connection and partition scheme. Selection is retained by disk number when possible. Capacity uses decimal units.
 
-This milestone is **read-only**. Windows partition details, file systems and used/free space are unavailable; the app says so explicitly. There are no format, partition editing, mount/unmount/eject, ISO writing, elevation or privileged-helper controls. No mock disks or partition layouts are used.
+The Windows page remains **read-only**. The Rust backend and C# service now expose physical disks, partitions, volumes, labels, filesystems, free space and validated mount/unmount operations for supported external USB volumes. The page still displays the legacy physical-disk list; volume presentation and action controls await native Windows verification. Windows eject is unsupported. No format, partition editing, ISO writing, elevation or privileged-helper controls exist. See [Milestone 2 backend](docs/milestone-2-backend.md) for the JSON API, safety policy and remaining frontend work.
 
 ```powershell
 cargo fmt --all -- --check
@@ -48,7 +48,7 @@ cargo test --workspace
 dotnet test windows/Diskvio.Windows.Tests/Diskvio.Windows.Tests.csproj -p:Platform=x64
 ```
 
-The managed tests cover JSON contracts and refresh state, and include a read-only native integration test that enumerates this machine's disks twice. To run only deterministic tests, append `--filter 'Category!=NativeIntegration'`. Test fixtures are confined to the test project.
+The managed tests cover legacy and richer JSON contracts, structured operation errors and refresh state, and include a read-only native integration test that enumerates this machine's disks twice. To run only deterministic tests, append `--filter 'Category!=NativeIntegration'`. Test fixtures are confined to the test project. On macOS or Linux, run the same deterministic tests with `dotnet test windows/Diskvio.Windows.Tests/Diskvio.Windows.Tests.csproj -p:DiskvioPortableTests=true --filter 'Category!=NativeIntegration'`; this omits the Windows DLL build and native test.
 
 See [Windows architecture](docs/windows-architecture.md) for the native ownership contract, build pipeline, limitations and extension points.
 
@@ -68,4 +68,4 @@ Mount, Unmount, and Eject appear in the toolbar and context menus only where the
 
 For architecture, FFI ownership, operation policy and deployment details, see [macOS architecture](docs/macos-architecture.md). For validation and hardware test steps, see [macOS testing](docs/macos-testing.md).
 
-The original CLI output is preserved. `cargo run -p diskvio-cli -- --json` prints structured topology; Windows continues to support basic physical disk discovery.
+The original CLI output is preserved. `cargo run -p diskvio-cli -- --json` prints structured topology; Windows inventory now includes partitions and volumes with separate device identities.

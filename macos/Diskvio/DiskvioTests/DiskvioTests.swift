@@ -130,3 +130,36 @@ struct PartitionMapTests {
         #expect(layout.segments.allSatisfy { $0.startFraction == 1 && $0.lengthFraction == 0 })
     }
 }
+
+struct OperationContractTests {
+    @Test func queryRequestsCarryExplicitModes() throws {
+        let query = OperationQueryRequest(mode: "supported_operations", action: nil, identifier: "disk2s1", expectedIdentity: nil)
+        let json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(query)) as? [String: Any])
+        #expect(json["mode"] as? String == "supported_operations")
+        #expect(json["action"] == nil)
+        let legacy = OperationRequest(action: .mount, identifier: "disk2s1", expectedIdentity: "token")
+        let legacyJSON = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(legacy)) as? [String: Any])
+        #expect(legacyJSON["mode"] == nil)
+        #expect(legacyJSON["expected_identity"] as? String == "token")
+    }
+
+    @Test func decodesCapabilitiesAndValidation() throws {
+        let capabilities = try DiskService.decodeCapabilities(Data(#"{"status":"ok","capabilities":{"identifier":"disk3","device_kind":"apfs_container","identity_token":null,"actions":[]}}"#.utf8))
+        #expect(capabilities.actions.isEmpty)
+        #expect(capabilities.deviceKind == "apfs_container")
+        let validation = try DiskService.decodeValidation(Data(#"{"status":"ok","validation":{"valid":true,"action":"mount","identifier":"disk2s1","expected_identity":"token"}}"#.utf8))
+        #expect(validation.valid)
+        #expect(validation.action == .mount)
+    }
+
+    @Test func preservesStructuredOperationErrors() throws {
+        let data = Data(#"{"status":"error","message":"Access denied","error":{"code":"permission_denied","message":"Access denied","platform_code":5}}"#.utf8)
+        do {
+            _ = try DiskService.decodeOperation(data)
+            Issue.record("Expected a structured operation error")
+        } catch DiskServiceError.operationFailed(let error) {
+            #expect(error.code == "permission_denied")
+            #expect(error.platformCode == 5)
+        }
+    }
+}

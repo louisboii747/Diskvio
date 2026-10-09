@@ -7,6 +7,8 @@ pub struct DiskInventory {
     pub apfs_containers: Vec<ApfsContainer>,
     /// Partial discovery errors are visible to callers, never replaced by fake data.
     pub warnings: Vec<String>,
+    #[serde(default)]
+    pub unattached_volumes: Vec<Volume>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -25,9 +27,27 @@ pub struct Device {
     pub identity_token: Option<String>,
     #[serde(default)]
     pub actions: Vec<crate::DiskOperation>,
+    #[serde(default)]
+    pub stable_id: Option<String>,
+    #[serde(default)]
+    pub drive_letter: Option<String>,
+    #[serde(default)]
+    pub mount_points: Vec<String>,
+    #[serde(default)]
+    pub safety: DeviceSafety,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DeviceSafety {
+    pub system: Option<bool>,
+    pub boot: Option<bool>,
+    pub recovery: Option<bool>,
+    pub hidden: Option<bool>,
+    pub read_only: Option<bool>,
+    pub offline: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PhysicalDisk {
     pub device: Device,
     pub number: u32,
@@ -38,15 +58,39 @@ pub struct PhysicalDisk {
     pub ejectable: Option<bool>,
     pub registry_entry_id: Option<u64>,
     pub partitions: Vec<Partition>,
+    #[serde(default)]
+    pub disk_uuid: Option<String>,
+    #[serde(default)]
+    pub mbr_signature: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Partition {
     pub device: Device,
     /// Partition type is distinct from the filesystem that may occupy it.
     pub content_type: Option<String>,
     pub offset_bytes: Option<u64>,
     pub apfs_container_id: Option<String>,
+    #[serde(default)]
+    pub number: Option<u32>,
+    #[serde(default)]
+    pub gpt_type: Option<String>,
+    #[serde(default)]
+    pub mbr_type: Option<u16>,
+    #[serde(default)]
+    pub active: Option<bool>,
+    #[serde(default)]
+    pub shadow_copy: Option<bool>,
+    #[serde(default)]
+    pub no_default_drive_letter: Option<bool>,
+    #[serde(default)]
+    pub volumes: Vec<Volume>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Volume {
+    pub device: Device,
+    pub label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,13 +121,14 @@ pub struct ApfsSnapshot {
     pub mount_point: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PartitionScheme {
     Gpt,
     Mbr,
     ApplePartitionMap,
     None,
+    #[default]
     Unknown,
 }
 

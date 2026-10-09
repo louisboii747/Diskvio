@@ -126,6 +126,10 @@ public sealed class DiscoveryTests
         public IReadOnlyList<Disk> Result { get; set; } = [];
         public Exception? Error { get; set; }
         public TaskCompletionSource<IReadOnlyList<Disk>>? Pending { get; init; }
+        public Task<StorageInventory> InventoryAsync() => throw new NotSupportedException();
+        public Task<DiskOperationOutcome> PerformAsync(DiskOperationRequest request) => throw new NotSupportedException();
+        public Task<OperationValidation> ValidateAsync(DiskOperationRequest request) => throw new NotSupportedException();
+        public Task<OperationCapabilities> SupportedOperationsAsync(string identifier) => throw new NotSupportedException();
         public Task<IReadOnlyList<Disk>> ListDisksAsync() => Pending?.Task
             ?? (Error is null ? Task.FromResult(Result) : Task.FromException<IReadOnlyList<Disk>>(Error));
     }

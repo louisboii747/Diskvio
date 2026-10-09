@@ -25,11 +25,11 @@ internal static class NativeMethods
         try
         {
             library = NativeLibrary.Load(path);
-            // Verify both exports before allocating a response. An ABI mismatch
-            // must not strand an allocation without its matching free function.
             NativeLibrary.GetExport(library, "diskvio_list_disks_json");
+            NativeLibrary.GetExport(library, "diskvio_inventory_json");
+            NativeLibrary.GetExport(library, "diskvio_operation_json");
             NativeLibrary.GetExport(library, "diskvio_string_free");
-            return library; // Retained for the process lifetime / SafeHandle finalizers.
+            return library;
         }
         catch (Exception error) when (error is DllNotFoundException or BadImageFormatException or EntryPointNotFoundException)
         {
@@ -44,6 +44,25 @@ internal static class NativeMethods
         _ = Library.Value;
         return ListDisksJson();
     }
+
+    internal static RustStringHandle Inventory()
+    {
+        _ = Library.Value;
+        return InventoryJson();
+    }
+
+    internal static RustStringHandle Operation(byte[] request)
+    {
+        if (request.Length is 0 or > 16384) throw new DiskServiceException("The operation request must contain between 1 and 16384 UTF-8 bytes.");
+        _ = Library.Value;
+        return OperationJson(request, (nuint)request.Length);
+    }
+
+    [DllImport(LibraryName, EntryPoint = "diskvio_inventory_json", ExactSpelling = true, CallingConvention = CallingConvention.Cdecl)]
+    private static extern RustStringHandle InventoryJson();
+
+    [DllImport(LibraryName, EntryPoint = "diskvio_operation_json", ExactSpelling = true, CallingConvention = CallingConvention.Cdecl)]
+    private static extern RustStringHandle OperationJson([In] byte[] request, nuint length);
 
     [DllImport(LibraryName, EntryPoint = "diskvio_list_disks_json", ExactSpelling = true, CallingConvention = CallingConvention.Cdecl)]
     private static extern RustStringHandle ListDisksJson();

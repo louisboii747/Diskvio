@@ -6,6 +6,7 @@ enum DiskServiceError: LocalizedError {
     case invalidUTF8
     case invalidResponse
     case discoveryFailed(String)
+    case operationFailed(BackendOperationError)
 
     var errorDescription: String? {
         switch self {
@@ -17,6 +18,8 @@ enum DiskServiceError: LocalizedError {
             "Rust returned an incomplete response."
         case .discoveryFailed(let message):
             message
+        case .operationFailed(let error):
+            error.message
         }
     }
 }
@@ -66,6 +69,20 @@ struct DiskService: Sendable {
     }
 
     nonisolated static func perform(_ request: OperationRequest) throws -> OperationOutcome {
+        try decodeOperation(operationResponseData(request))
+    }
+
+    nonisolated static func supportedOperations(identifier: String) throws -> OperationCapabilities {
+        let request = OperationQueryRequest(mode: "supported_operations", action: nil, identifier: identifier, expectedIdentity: nil)
+        return try decodeCapabilities(operationResponseData(request))
+    }
+
+    nonisolated static func validate(_ request: OperationRequest) throws -> OperationValidation {
+        let query = OperationQueryRequest(mode: "validate", action: request.action, identifier: request.identifier, expectedIdentity: request.expectedIdentity)
+        return try decodeValidation(operationResponseData(query))
+    }
+
+    private nonisolated static func operationResponseData(_ request: some Encodable) throws -> Data {
         let data = try JSONEncoder().encode(request)
         return try data.withUnsafeBytes { buffer in
             guard let pointer = diskvio_operation_json(buffer.bindMemory(to: UInt8.self).baseAddress, buffer.count) else {
@@ -73,15 +90,34 @@ struct DiskService: Sendable {
             }
             defer { diskvio_string_free(pointer) }
             guard let json = String(validatingCString: pointer) else { throw DiskServiceError.invalidUTF8 }
-            return try decodeOperation(Data(json.utf8))
+            return Data(json.utf8)
+        }
+    }
+
+    nonisolated static func decodeCapabilities(_ data: Data) throws -> OperationCapabilities {
+        let response = try JSONDecoder().decode(OperationResponse.self, from: data)
+        try checkOperationResponse(response)
+        guard let capabilities = response.capabilities else { throw DiskServiceError.invalidResponse }
+        return capabilities
+    }
+
+    nonisolated static func decodeValidation(_ data: Data) throws -> OperationValidation {
+        let response = try JSONDecoder().decode(OperationResponse.self, from: data)
+        try checkOperationResponse(response)
+        guard let validation = response.validation, validation.valid else { throw DiskServiceError.invalidResponse }
+        return validation
+    }
+
+    private nonisolated static func checkOperationResponse(_ response: OperationResponse) throws {
+        guard response.status == .ok else {
+            if let error = response.error { throw DiskServiceError.operationFailed(error) }
+            throw DiskServiceError.discoveryFailed(response.message ?? "The operation failed.")
         }
     }
 
     nonisolated static func decodeOperation(_ data: Data) throws -> OperationOutcome {
         let response = try JSONDecoder().decode(OperationResponse.self, from: data)
-        guard response.status == .ok else {
-            throw DiskServiceError.discoveryFailed(response.message ?? "The operation failed.")
-        }
+        try checkOperationResponse(response)
         guard let operation = response.operation else { throw DiskServiceError.invalidResponse }
         return operation
     }
@@ -89,6 +125,9 @@ struct DiskService: Sendable {
     private nonisolated struct OperationResponse: Decodable {
         let status: Response.Status
         let operation: OperationOutcome?
+        let capabilities: OperationCapabilities?
+        let validation: OperationValidation?
+        let error: BackendOperationError?
         let message: String?
     }
 

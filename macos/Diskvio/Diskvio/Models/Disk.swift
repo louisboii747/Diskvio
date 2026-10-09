@@ -257,3 +257,37 @@ nonisolated struct APFSSnapshot: Decodable, Sendable {
     let mountPoint: String?
     enum CodingKeys: String, CodingKey { case identifier, name, uuid; case mountPoint = "mount_point" }
 }
+
+nonisolated struct BackendOperationError: Decodable, Sendable {
+    let code: String
+    let message: String
+    let platformCode: Int64?
+    enum CodingKeys: String, CodingKey { case code, message; case platformCode = "platform_code" }
+}
+
+nonisolated struct OperationCapabilities: Decodable, Sendable {
+    let identifier: String
+    let deviceKind: String
+    let identityToken: String?
+    let actions: [DiskAction]
+    enum CodingKeys: String, CodingKey {
+        case identifier, actions
+        case deviceKind = "device_kind", identityToken = "identity_token"
+    }
+}
+
+nonisolated struct OperationValidation: Decodable, Sendable {
+    let valid: Bool
+    let action: DiskAction
+    let identifier: String
+    let expectedIdentity: String
+    enum CodingKeys: String, CodingKey { case valid, action, identifier; case expectedIdentity = "expected_identity" }
+}
+
+nonisolated struct OperationQueryRequest: Encodable, Sendable {
+    let mode: String
+    let action: DiskAction?
+    let identifier: String
+    let expectedIdentity: String?
+    enum CodingKeys: String, CodingKey { case mode, action, identifier; case expectedIdentity = "expected_identity" }
+}

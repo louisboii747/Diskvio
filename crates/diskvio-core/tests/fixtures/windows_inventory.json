@@ -1,0 +1,38 @@
+{
+  "disks": [
+    {
+      "number": 0, "name": "System SSD", "size_bytes": 1000000000000,
+      "bus_type": "NVMe", "partition_style": "GPT", "unique_id": "system-id",
+      "serial_number": "system-serial", "path": "system-path", "guid": "aaaaaaaa-1111-2222-3333-444444444444",
+      "system": true, "boot": true, "offline": false, "read_only": false, "clustered": false,
+      "partitions": [{
+        "number": 1, "guid": "bbbbbbbb-1111-2222-3333-444444444444",
+        "gpt_type": "{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}", "type": "Basic",
+        "offset_bytes": 1048576, "size_bytes": 999000000000, "access_paths": ["C:\\"],
+        "system": true, "boot": true, "active": false, "hidden": false, "read_only": false,
+        "offline": false, "shadow_copy": false, "no_default_drive_letter": false,
+        "volumes": [{"path": "\\\\?\\Volume{cccccccc-1111-2222-3333-444444444444}\\", "unique_id": "system-volume",
+          "drive_letter": "C", "label": "Windows", "filesystem": "NTFS", "size_bytes": 999000000000, "available_bytes": 500000000000}]
+      }]
+    },
+    {
+      "number": 2, "name": "External USB", "size_bytes": 64000000000,
+      "bus_type": "USB", "partition_style": "GPT", "unique_id": "usb-id",
+      "serial_number": "usb-serial", "path": "usb-path", "guid": "dddddddd-1111-2222-3333-444444444444",
+      "system": false, "boot": false, "offline": false, "read_only": false, "clustered": false,
+      "partitions": [{
+        "number": 1, "guid": "eeeeeeee-1111-2222-3333-444444444444",
+        "gpt_type": "{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}", "type": "Basic",
+        "offset_bytes": 1048576, "size_bytes": 63900000000,
+        "access_paths": ["E:\\", "\\\\?\\Volume{11111111-2222-3333-4444-555555555555}\\"],
+        "system": false, "boot": false, "active": false, "hidden": false, "read_only": false,
+        "offline": false, "shadow_copy": false, "no_default_drive_letter": false,
+        "volumes": [{"path": "\\\\?\\Volume{11111111-2222-3333-4444-555555555555}\\", "unique_id": "usb-volume",
+          "drive_letter": "E", "label": "Données", "filesystem": "NTFS", "size_bytes": 63900000000, "available_bytes": 20000000000}]
+      }]
+    }
+  ],
+  "unattached_volumes": [{"path": "\\\\?\\Volume{99999999-2222-3333-4444-555555555555}\\", "unique_id": "unmapped",
+    "drive_letter": null, "label": "Unmapped", "filesystem": "ReFS", "size_bytes": 1000, "available_bytes": 500}],
+  "warnings": []
+}

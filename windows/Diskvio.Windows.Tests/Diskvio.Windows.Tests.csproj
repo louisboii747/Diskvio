@@ -11,6 +11,14 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(DiskvioPortableTests)' == 'true'">
+    <TargetFramework>net10.0</TargetFramework>
+    <Platforms>AnyCPU</Platforms>
+    <Platform>AnyCPU</Platform>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <RuntimeIdentifier></RuntimeIdentifier>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -26,5 +34,5 @@
     <Compile Include="..\Diskvio.Windows\Services\*.cs" Link="Services\%(Filename)%(Extension)" />
     <Compile Include="..\Diskvio.Windows\ViewModels\*.cs" Link="ViewModels\%(Filename)%(Extension)" />
   </ItemGroup>
-  <Import Project="..\build\Diskvio.Rust.targets" />
+  <Import Project="..\build\Diskvio.Rust.targets" Condition="'$(DiskvioPortableTests)' != 'true'" />
 </Project>

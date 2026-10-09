@@ -1,5 +1,6 @@
 use diskvio_core::{Disk, disk_inventory, list_disks};
-use serde::Serialize;
+use diskvio_core::{DiskOperation, OperationError, OperationErrorKind, OperationRequest};
+use serde::{Deserialize, Serialize};
 use std::{ffi::CString, os::raw::c_char, panic::catch_unwind, ptr};
 
 #[derive(Serialize)]
@@ -48,7 +49,10 @@ pub extern "C" fn diskvio_inventory_json() -> *mut c_char {
     catch_unwind(|| {
         let response = match disk_inventory() {
             Ok(inventory) => serde_json::json!({"status": "ok", "inventory": inventory}),
-            Err(error) => serde_json::json!({"status": "error", "message": error.to_string()}),
+            Err(error) => error_response(OperationError::new(
+                OperationErrorKind::IncompleteDiscovery,
+                error.to_string(),
+            )),
         };
         CString::new(response.to_string())
             .ok()
@@ -59,6 +63,79 @@ pub extern "C" fn diskvio_inventory_json() -> *mut c_char {
     .unwrap_or(ptr::null_mut())
 }
 
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum RequestMode {
+    #[default]
+    Execute,
+    Validate,
+    SupportedOperations,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ApiRequest {
+    #[serde(default)]
+    mode: RequestMode,
+    action: Option<DiskOperation>,
+    identifier: String,
+    expected_identity: Option<String>,
+}
+
+fn error_response(error: OperationError) -> serde_json::Value {
+    serde_json::json!({"status": "error", "message": error.message, "error": error})
+}
+
+fn operation_response(bytes: &[u8]) -> serde_json::Value {
+    let request: ApiRequest = match serde_json::from_slice(bytes) {
+        Ok(request) => request,
+        Err(error) => {
+            return error_response(OperationError::new(
+                OperationErrorKind::InvalidRequest,
+                format!("Invalid operation request: {error}"),
+            ));
+        }
+    };
+    if matches!(request.mode, RequestMode::SupportedOperations) {
+        return match diskvio_core::supported_operations(&request.identifier) {
+            Ok(capabilities) => serde_json::json!({"status": "ok", "capabilities": capabilities}),
+            Err(error) => error_response(error),
+        };
+    }
+    let Some(action) = request.action else {
+        return error_response(OperationError::new(
+            OperationErrorKind::InvalidRequest,
+            "An operation action is required",
+        ));
+    };
+    let Some(expected_identity) = request.expected_identity else {
+        return error_response(OperationError::new(
+            OperationErrorKind::InvalidRequest,
+            "A device identity token is required",
+        ));
+    };
+    let operation = OperationRequest {
+        action,
+        identifier: request.identifier,
+        expected_identity,
+    };
+    match request.mode {
+        RequestMode::Execute => match diskvio_core::perform_operation(&operation) {
+            Ok(outcome) => serde_json::json!({"status": "ok", "operation": outcome}),
+            Err(error) => error_response(error),
+        },
+        RequestMode::Validate => match diskvio_core::validate_operation(&operation) {
+            Ok(validation) => serde_json::json!({"status": "ok", "validation": validation}),
+            Err(error) => {
+                let mut response = error_response(error);
+                response["validation"] = serde_json::json!({"valid": false, "action": operation.action, "identifier": operation.identifier, "expected_identity": operation.expected_identity});
+                response
+            }
+        },
+        RequestMode::SupportedOperations => unreachable!(),
+    }
+}
+
 /// Returns owned operation-response JSON, freed with `diskvio_string_free`.
 ///
 /// # Safety
@@ -67,24 +144,21 @@ pub extern "C" fn diskvio_inventory_json() -> *mut c_char {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn diskvio_operation_json(request: *const u8, length: usize) -> *mut c_char {
     let response = catch_unwind(|| {
-        let result = if request.is_null() || length == 0 || length > 16_384 {
-            Err("Invalid operation request buffer".to_owned())
-        } else {
-            // SAFETY: The caller guarantees readable bytes; the checked length
-            // is nonzero, bounded to 16 KiB, and below isize::MAX.
-            let bytes = unsafe { std::slice::from_raw_parts(request, length) };
-            serde_json::from_slice::<diskvio_core::OperationRequest>(bytes)
-                .map_err(|error| format!("Invalid operation request: {error}"))
-                .and_then(|request| diskvio_core::perform_operation(&request))
-        };
-        match result {
-            Ok(outcome) => serde_json::json!({"status": "ok", "operation": outcome}),
-            Err(message) => serde_json::json!({"status": "error", "message": message}),
+        if request.is_null() || length == 0 || length > 16_384 {
+            return error_response(OperationError::new(
+                OperationErrorKind::InvalidRequest,
+                "Invalid operation request buffer",
+            ));
         }
+        let bytes = unsafe { std::slice::from_raw_parts(request, length) };
+        operation_response(bytes)
     })
-    .unwrap_or_else(
-        |_| serde_json::json!({"status": "error", "message": "Internal operation error"}),
-    );
+    .unwrap_or_else(|_| {
+        error_response(OperationError::new(
+            OperationErrorKind::Io,
+            "Internal operation error",
+        ))
+    });
     CString::new(response.to_string())
         .ok()
         .map(CString::into_raw)
@@ -146,6 +220,50 @@ mod tests {
             serde_json::from_slice(unsafe { CStr::from_ptr(response) }.to_bytes()).unwrap();
         assert_eq!(json["status"], "error");
         unsafe { diskvio_string_free(response) };
+    }
+
+    #[test]
+    fn accepts_legacy_execution_and_explicit_query_modes() {
+        let legacy: ApiRequest = serde_json::from_slice(
+            br#"{"action":"mount","identifier":"disk2s1","expected_identity":"token"}"#,
+        )
+        .unwrap();
+        assert!(matches!(legacy.mode, RequestMode::Execute));
+        let capabilities: ApiRequest =
+            serde_json::from_slice(br#"{"mode":"supported_operations","identifier":"disk2s1"}"#)
+                .unwrap();
+        assert!(matches!(
+            capabilities.mode,
+            RequestMode::SupportedOperations
+        ));
+        let validation: ApiRequest = serde_json::from_slice(br#"{"mode":"validate","action":"unmount","identifier":"disk2s1","expected_identity":"token"}"#).unwrap();
+        assert!(matches!(validation.mode, RequestMode::Validate));
+    }
+
+    #[test]
+    fn structured_errors_preserve_legacy_message_and_native_code() {
+        let mut error = OperationError::new(OperationErrorKind::PermissionDenied, "Access denied");
+        error.platform_code = Some(5);
+        let json = error_response(error);
+        assert_eq!(json["status"], "error");
+        assert_eq!(json["message"], "Access denied");
+        assert_eq!(json["error"]["code"], "permission_denied");
+        assert_eq!(json["error"]["platform_code"], 5);
+    }
+
+    #[test]
+    fn malformed_queries_never_reach_platform_execution() {
+        for bytes in [
+            br#"{"mode":"erase","identifier":"disk2"}"#.as_slice(),
+            br#"{"mode":"validate","identifier":"disk2"}"#.as_slice(),
+            br#"{"action":"mount","identifier":"disk2"}"#.as_slice(),
+            br#"{"action":"mount","identifier":"disk2","expected_identity":"token","force":true}"#
+                .as_slice(),
+        ] {
+            let json = operation_response(bytes);
+            assert_eq!(json["status"], "error");
+            assert_eq!(json["error"]["code"], "invalid_request");
+        }
     }
 
     #[test]

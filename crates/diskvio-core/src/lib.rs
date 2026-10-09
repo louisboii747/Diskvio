@@ -3,11 +3,8 @@ use serde::{Deserialize, Serialize};
 mod model;
 mod operations;
 pub use model::*;
-pub use operations::{
-    DiskBackend, DiskOperation, OperationOutcome, OperationRequest, perform_operation,
-};
+pub use operations::*;
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
 mod platform;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
