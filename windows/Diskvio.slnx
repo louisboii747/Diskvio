@@ -1,0 +1,12 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="Diskvio.Windows/Diskvio.Windows.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+    <Deploy />
+  </Project>
+  <Project Path="Diskvio.Windows.Tests/Diskvio.Windows.Tests.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+</Solution>

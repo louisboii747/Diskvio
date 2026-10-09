@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Diskvio.Windows.Views.DevicesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:Diskvio.Windows.Models"
+    xmlns:converters="using:Diskvio.Windows.Converters"
+    Loaded="OnLoaded">
+    <Page.Resources>
+        <converters:BooleanToVisibilityConverter x:Key="VisibleWhenTrue" />
+        <Style x:Key="DetailLabel" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="24" />
+        </Style>
+    </Page.Resources>
+
+    <Grid Margin="28,24,28,20" RowSpacing="20">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="WideWorkspace">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1100" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ListColumn.Width" Value="300" />
+                        <Setter Target="GapColumn.Width" Value="24" />
+                        <Setter Target="DetailsColumn.Width" Value="*" />
+                        <Setter Target="ListRow.Height" Value="*" />
+                        <Setter Target="DetailsRow.Height" Value="0" />
+                        <Setter Target="DeviceListPanel.Height" Value="NaN" />
+                        <Setter Target="DetailsPanel.(Grid.Row)" Value="0" />
+                        <Setter Target="DetailsPanel.(Grid.Column)" Value="2" />
+                        <Setter Target="DetailsPanel.Margin" Value="0" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="6">
+                <TextBlock Text="Devices" Style="{ThemeResource TitleTextBlockStyle}" />
+                <TextBlock Text="Inspect the physical disks connected to this PC."
+                           TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+            <Button Grid.Column="1" VerticalAlignment="Center"
+                    Command="{Binding RefreshCommand}" AutomationProperties.Name="Refresh devices"
+                    ToolTipService.ToolTip="Refresh devices (Ctrl+R or F5)">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="R" Modifiers="Control" />
+                    <KeyboardAccelerator Key="F5" />
+                </Button.KeyboardAccelerators>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <SymbolIcon Symbol="Refresh" />
+                    <TextBlock Text="Refresh" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <Border Grid.Row="1" Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                CornerRadius="6" Padding="12,10">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <FontIcon Glyph="&#xE72E;" FontSize="14" VerticalAlignment="Center" />
+                <TextBlock Text="Read-only · Your disks are never modified." TextWrapping="Wrap"
+                           Style="{ThemeResource CaptionTextBlockStyle}" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="2" Spacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="12"
+                        Visibility="{Binding IsLoading, Converter={StaticResource VisibleWhenTrue}}"
+                        AutomationProperties.LiveSetting="Polite">
+                <ProgressRing IsActive="{Binding IsLoading}" Width="20" Height="20"
+                              AutomationProperties.Name="Discovering disks" />
+                <TextBlock Text="Discovering disks…" VerticalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+            <InfoBar IsOpen="{Binding HasError}" Severity="Error" IsClosable="False"
+                     Title="Couldn’t discover disks" Message="{Binding ErrorMessage}"
+                     AutomationProperties.LiveSetting="Assertive" />
+        </StackPanel>
+
+        <Grid Grid.Row="3">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12"
+                        Visibility="{Binding IsEmpty, Converter={StaticResource VisibleWhenTrue}}"
+                        AutomationProperties.LiveSetting="Polite">
+                <FontIcon Glyph="&#xEDA2;" FontSize="36" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock Text="No physical disks found" Style="{ThemeResource SubtitleTextBlockStyle}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Connect a device, then choose Refresh." TextWrapping="Wrap"
+                           HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <Grid x:Name="Workspace" Visibility="{Binding IsWorkspaceVisible, Converter={StaticResource VisibleWhenTrue}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="ListColumn" Width="*" />
+                    <ColumnDefinition x:Name="GapColumn" Width="0" />
+                    <ColumnDefinition x:Name="DetailsColumn" Width="0" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition x:Name="ListRow" Height="Auto" />
+                    <RowDefinition x:Name="DetailsRow" Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border x:Name="DeviceListPanel" Height="220" Style="{StaticResource Card}" Padding="0">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Margin="20,18,20,4">
+                            <TextBlock Text="Physical disks" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding DeviceCount}" HorizontalAlignment="Right"
+                                       Style="{ThemeResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="DeviceList" Grid.Row="1" Margin="8,0,8,8"
+                                  ItemsSource="{Binding Disks}"
+                                  SelectedItem="{Binding SelectedDisk, Mode=TwoWay}"
+                                  SelectionMode="Single" IsItemClickEnabled="False"
+                                  IsEnabled="{Binding CanInspect}"
+                                  SelectionChanged="OnDiskSelectionChanged"
+                                  AutomationProperties.Name="Physical disks">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="models:Disk">
+                                    <Grid Padding="4,10" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Glyph="&#xEDA2;" FontSize="20" VerticalAlignment="Center"
+                                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <StackPanel Grid.Column="1" Spacing="5">
+                                            <TextBlock Text="{x:Bind DisplayName}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                                            <TextBlock Text="{x:Bind ListSummary}" TextWrapping="Wrap"
+                                                       Style="{ThemeResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer x:Name="DetailsPanel" Grid.Row="1" Margin="0,20,0,0"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="20" Visibility="{Binding HasSelection, Converter={StaticResource VisibleWhenTrue}}">
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="24">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="DEVICE OVERVIEW" Style="{StaticResource DetailLabel}" CharacterSpacing="70" />
+                                    <TextBlock Text="{Binding SelectedDisk.DisplayName}" TextWrapping="Wrap"
+                                               Style="{ThemeResource SubtitleTextBlockStyle}" IsTextSelectionEnabled="True" />
+                                    <TextBlock Text="{Binding SelectedDisk.Identifier}" IsTextSelectionEnabled="True"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Total capacity" Style="{StaticResource DetailLabel}" />
+                                    <TextBlock Text="{Binding SelectedDisk.Capacity}" Style="{ThemeResource TitleTextBlockStyle}" />
+                                    <TextBlock Text="{Binding SelectedDisk.ExactCapacity}" Style="{StaticResource DetailLabel}" />
+                                </StackPanel>
+                                <Grid ColumnSpacing="24">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Connection" Style="{StaticResource DetailLabel}" />
+                                        <TextBlock Text="{Binding SelectedDisk.Connection}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Spacing="6">
+                                        <TextBlock Text="Partition scheme" Style="{StaticResource DetailLabel}" />
+                                        <TextBlock Text="{Binding SelectedDisk.Scheme}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Partitions" FontWeight="SemiBold" />
+                                <TextBlock Text="Partition details aren’t available on Windows yet."
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Diskvio currently discovers physical disks. Partition sizes, file systems and used space are not reported."
+                                           TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="4">
+            <TextBlock Text="Capacity uses decimal units (1 GB = 1,000,000,000 bytes)."
+                       TextWrapping="Wrap" Style="{ThemeResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,130,0" />
+            <TextBlock Text="{Binding LastUpdated}" HorizontalAlignment="Right"
+                       Style="{ThemeResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Grid>
+    </Grid>
+</Page>

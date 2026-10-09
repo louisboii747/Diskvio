@@ -1,0 +1,33 @@
+<Project>
+  <PropertyGroup>
+    <DiskvioRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</DiskvioRepositoryRoot>
+    <DiskvioRustTarget>x86_64-pc-windows-msvc</DiskvioRustTarget>
+    <DiskvioRustTargetDirectory>$(DiskvioRepositoryRoot)target\windows</DiskvioRustTargetDirectory>
+    <DiskvioRustProfile Condition="'$(Configuration)' == 'Debug'">debug</DiskvioRustProfile>
+    <DiskvioRustProfile Condition="'$(Configuration)' == 'Release'">release</DiskvioRustProfile>
+    <DiskvioRustProfileArgument Condition="'$(Configuration)' == 'Release'">--release</DiskvioRustProfileArgument>
+    <DiskvioRustLibrary>$(DiskvioRustTargetDirectory)\$(DiskvioRustTarget)\$(DiskvioRustProfile)\diskvio_ffi.dll</DiskvioRustLibrary>
+    <DiskvioCargoExecutable Condition="'$(DiskvioCargoExecutable)' == '' and Exists('$(USERPROFILE)\.cargo\bin\cargo.exe')">$(USERPROFILE)\.cargo\bin\cargo.exe</DiskvioCargoExecutable>
+    <DiskvioCargoExecutable Condition="'$(DiskvioCargoExecutable)' == ''">cargo</DiskvioCargoExecutable>
+  </PropertyGroup>
+
+  <!-- Declare content before Cargo produces it: build, publish and the standard
+       single-project MSIX pipeline must all see the native asset. -->
+  <ItemGroup>
+    <Content Include="$(DiskvioRustLibrary)">
+      <Link>diskvio_ffi.dll</Link>
+      <TargetPath>diskvio_ffi.dll</TargetPath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="BuildDiskvioRust" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(Platform)' != 'x64' or '$(PlatformTarget)' != 'x64' or '$(RuntimeIdentifier)' != 'win-x64'"
+           Text="Diskvio Windows supports only x64 / win-x64. Select x64 in Configuration Manager." />
+    <Error Condition="'$(DiskvioRustProfile)' == ''" Text="Diskvio Rust requires Debug or Release configuration." />
+    <Exec WorkingDirectory="$(DiskvioRepositoryRoot)"
+          Command="&quot;$(DiskvioCargoExecutable)&quot; build --locked --manifest-path &quot;$(DiskvioRepositoryRoot)Cargo.toml&quot; --package diskvio-ffi --target $(DiskvioRustTarget) --target-dir &quot;$(DiskvioRustTargetDirectory)&quot; $(DiskvioRustProfileArgument)" />
+    <Error Condition="!Exists('$(DiskvioRustLibrary)')" Text="Cargo did not produce the expected x64 DLL: $(DiskvioRustLibrary)" />
+  </Target>
+</Project>

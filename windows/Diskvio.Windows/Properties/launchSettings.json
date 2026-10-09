@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "Diskvio.Windows (Package)": {
+      "commandName": "MsixPackage"
+    }
+  }
+}

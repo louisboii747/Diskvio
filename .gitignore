@@ -33,6 +33,11 @@ rustc-ice-*.txt
 # .NET build outputs
 [Bb]in/
 [Oo]bj/
+AppPackages/
+BundleArtifacts/
+BundleArtifactsUpload/
+Generated Files/
+*.build.appxrecipe
 
 # Xcode user state and local build products
 **/xcuserdata/
