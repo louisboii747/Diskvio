@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 diskvio-core = { path = "../diskvio-core" }
+serde_json = "1.0.151"
