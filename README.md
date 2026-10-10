@@ -3,7 +3,7 @@ A modern, native cross-platform disk and partition manager, written in Rust.
 
 ## Windows app
 
-The first Windows milestone is a native **C# / .NET 10 / WinUI 3** desktop app, using the stable Windows App SDK **2.5.1** and single-project MSIX packaging. It shares `diskvio-core` and `diskvio-ffi` with the macOS app. Windows support is currently **x64 only**.
+The Windows frontend is a native **C# / .NET 10 / WinUI 3** desktop app, using the stable Windows App SDK **2.5.1** and single-project MSIX packaging. It shares `diskvio-core` and `diskvio-ffi` with the macOS app. Windows support is currently **x64 only**.
 
 ### Prerequisites
 
@@ -36,9 +36,9 @@ The MSBuild integration builds `diskvio_ffi.dll` for `x86_64-pc-windows-msvc` in
 
 ### Capabilities and validation
 
-The app displays **real physical disks** discovered by Rust through Windows `Get-Disk`: device name/identifier, total capacity, connection and partition scheme. Selection is retained by disk number when possible. Capacity uses decimal units.
+The app displays **real physical disks, partitions and volumes** discovered through the Rust inventory API, with a proportional partition layout and a detailed inspector. It shows backend-reported capacities, filesystem, drive letters, mount locations and safety metadata. Refresh preserves selection using identifiers and available stable identity; a 15-second read-only poll detects device changes. Capacity uses decimal units.
 
-The Windows page remains **read-only**. The Rust backend and C# service now expose physical disks, partitions, volumes, labels, filesystems, free space and validated mount/unmount operations for supported external USB volumes. The page still displays the legacy physical-disk list; volume presentation and action controls await native Windows verification. Windows eject is unsupported. No format, partition editing, ISO writing, elevation or privileged-helper controls exist. See [Milestone 2 backend](docs/milestone-2-backend.md) for the JSON API, safety policy and remaining frontend work.
+Mount and Unmount are enabled only for external USB volumes with matching backend capabilities and identity. Both require confirmation and fresh backend validation. Windows physical eject remains visibly unsupported. No format, partition editing, image writing or elevation controls exist. See [Milestone 4 Windows](docs/milestone-4-windows.md) for architecture, verified results, limitations and safe manual USB checks.
 
 ```powershell
 cargo fmt --all -- --check
@@ -48,7 +48,7 @@ cargo test --workspace
 dotnet test windows/Diskvio.Windows.Tests/Diskvio.Windows.Tests.csproj -p:Platform=x64
 ```
 
-The managed tests cover legacy and richer JSON contracts, structured operation errors and refresh state, and include a read-only native integration test that enumerates this machine's disks twice. To run only deterministic tests, append `--filter 'Category!=NativeIntegration'`. Test fixtures are confined to the test project. On macOS or Linux, run the same deterministic tests with `dotnet test windows/Diskvio.Windows.Tests/Diskvio.Windows.Tests.csproj -p:DiskvioPortableTests=true --filter 'Category!=NativeIntegration'`; this omits the Windows DLL build and native test.
+The managed tests cover legacy and richer JSON contracts, structured operation errors and refresh state, and include read-only native integration tests that enumerate this machine's disks and topology and query capabilities. To run only deterministic tests, append `--filter 'Category!=NativeIntegration'`. Test fixtures are confined to the test project. On macOS or Linux, run the same deterministic tests with `dotnet test windows/Diskvio.Windows.Tests/Diskvio.Windows.Tests.csproj -p:DiskvioPortableTests=true --filter 'Category!=NativeIntegration'`; this omits the Windows DLL build and native test.
 
 See [Windows architecture](docs/windows-architecture.md) for the native ownership contract, build pipeline, limitations and extension points.
 

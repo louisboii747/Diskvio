@@ -36,7 +36,7 @@
                 <StackPanel Margin="16,12" Spacing="4"
                             Visibility="{Binding IsPaneOpen, ElementName=Shell, Converter={StaticResource VisibleWhenTrue}}">
                     <TextBlock Text="Diskvio for Windows" Style="{ThemeResource CaptionTextBlockStyle}" />
-                    <TextBlock Text="Read-only inspection" Style="{ThemeResource CaptionTextBlockStyle}"
+                    <TextBlock Text="Storage explorer" Style="{ThemeResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </NavigationView.PaneFooter>
