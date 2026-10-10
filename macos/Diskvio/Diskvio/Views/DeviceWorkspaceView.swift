@@ -31,7 +31,6 @@ struct DeviceWorkspaceView: View {
                     Button { Task { await store.refresh() } } label: {
                         Label("Refresh", systemImage: "arrow.clockwise")
                     }
-                    .keyboardShortcut("r", modifiers: .command)
                     .disabled(store.isBusy)
                     .help("Refresh device information")
                     Button {

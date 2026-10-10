@@ -27,6 +27,16 @@ private nonisolated let topologyFixture = #"""
 {"status":"ok","inventory":{"disks":[{"device":{"identifier":"disk2","name":"Test USB","size_bytes":1000},"number":2,"partition_scheme":"gpt","connection_type":"USB","internal":false,"removable":true,"ejectable":true,"partitions":[{"device":{"identifier":"disk2s1","name":"Store","size_bytes":900,"partition_uuid":"partition-uuid"},"content_type":"Apple_APFS","offset_bytes":100,"apfs_container_id":"disk3"}]}],"apfs_containers":[{"device":{"identifier":"disk3","name":"APFS Container disk3","size_bytes":900,"used_bytes":300,"available_bytes":600},"uuid":"container-uuid","physical_store_ids":["disk2s1"],"volumes":[{"device":{"identifier":"disk3s1","name":"Test Data","size_bytes":900,"volume_uuid":"volume-uuid","filesystem":{"name":"APFS","kind":"apfs"},"used_bytes":200,"available_bytes":600},"roles":["Data"],"locked":false,"encrypted":false}]}],"warnings":[]}}
 """#
 
+private nonisolated let operationFixture = topologyFixture
+    .replacingOccurrences(
+        of: #""size_bytes":1000}"#,
+        with: #""size_bytes":1000,"identity_token":"disk-token","actions":["eject"]}"#
+    )
+    .replacingOccurrences(
+        of: #""available_bytes":600},"roles""#,
+        with: #""available_bytes":600,"identity_token":"volume-token","actions":["unmount"]},"roles""#
+    )
+
 struct ExplorerTests {
     @Test func topologyDoesNotTreatAPFSVolumesAsPartitions() throws {
         let inventory = try DiskService.decodeInventory(Data(topologyFixture.utf8))
@@ -161,5 +171,115 @@ struct OperationContractTests {
             #expect(error.code == "permission_denied")
             #expect(error.platformCode == 5)
         }
+    }
+}
+
+struct DiskActionIntegrationTests {
+    @Test @MainActor func availabilityUsesBackendReportedActionsAndUSBSelection() async throws {
+        let inventory = try DiskService.decodeInventory(Data(operationFixture.utf8))
+        let store = DiskStore(loadInventory: { inventory })
+        await store.refresh()
+
+        let volume = try #require(store.nodes.flatMap(\.flattened).last)
+        store.selection = volume.id
+
+        #expect(store.selectedUSBNode?.id == volume.id)
+        #expect(store.canRequest(.unmount, from: volume))
+        #expect(store.canRequest(.eject, from: volume))
+        #expect(!store.canRequest(.mount, from: volume))
+    }
+
+    @Test @MainActor func unmountRequiresConfirmationAndRefreshesAfterSuccess() async throws {
+        let inventory = try DiskService.decodeInventory(Data(operationFixture.utf8))
+        let executions = Mutex(0)
+        let loads = Mutex(0)
+        let store = DiskStore(
+            loadInventory: {
+                loads.withLock { $0 += 1 }
+                return inventory
+            },
+            runOperation: { request in
+                executions.withLock { $0 += 1 }
+                return OperationOutcome(action: request.action, identifier: request.identifier, message: "Unmounted")
+            },
+            loadCapabilities: { identifier in
+                OperationCapabilities(identifier: identifier, deviceKind: "apfs_volume", identityToken: "volume-token", actions: [.unmount])
+            },
+            validateOperation: { request in
+                OperationValidation(valid: true, action: request.action, identifier: request.identifier, expectedIdentity: request.expectedIdentity)
+            }
+        )
+        await store.refresh()
+        let volume = try #require(store.nodes.flatMap(\.flattened).last)
+
+        store.request(.unmount, from: volume)
+        #expect(store.pendingOperation?.action == .unmount)
+        #expect(executions.withLock { $0 } == 0)
+
+        store.confirmPendingOperation()
+        while store.operationInProgress != nil || executions.withLock({ $0 }) == 0 {
+            await Task.yield()
+        }
+        while store.isBusy { await Task.yield() }
+
+        #expect(executions.withLock { $0 } == 1)
+        #expect(loads.withLock { $0 } == 2)
+        #expect(store.operationMessage == "Unmounted")
+    }
+
+    @Test @MainActor func capabilityChangePreventsUnsupportedExecution() async throws {
+        let inventory = try DiskService.decodeInventory(Data(operationFixture.utf8))
+        let executions = Mutex(0)
+        let store = DiskStore(
+            loadInventory: { inventory },
+            runOperation: { request in
+                executions.withLock { $0 += 1 }
+                return OperationOutcome(action: request.action, identifier: request.identifier, message: "Unexpected")
+            },
+            loadCapabilities: { identifier in
+                OperationCapabilities(identifier: identifier, deviceKind: "apfs_volume", identityToken: "volume-token", actions: [])
+            },
+            validateOperation: { request in
+                OperationValidation(valid: true, action: request.action, identifier: request.identifier, expectedIdentity: request.expectedIdentity)
+            }
+        )
+        await store.refresh()
+        let volume = try #require(store.nodes.flatMap(\.flattened).last)
+
+        await store.perform(.unmount, on: volume)
+
+        #expect(executions.withLock { $0 } == 0)
+        #expect(store.operationFailed)
+        #expect(store.operationMessage?.contains("no longer available") == true)
+    }
+
+    @Test @MainActor func validationErrorsReachTheUserWithoutExecuting() async throws {
+        let inventory = try DiskService.decodeInventory(Data(operationFixture.utf8))
+        let executions = Mutex(0)
+        let store = DiskStore(
+            loadInventory: { inventory },
+            runOperation: { request in
+                executions.withLock { $0 += 1 }
+                return OperationOutcome(action: request.action, identifier: request.identifier, message: "Unexpected")
+            },
+            loadCapabilities: { identifier in
+                OperationCapabilities(identifier: identifier, deviceKind: "apfs_volume", identityToken: "volume-token", actions: [.unmount])
+            },
+            validateOperation: { _ in
+                throw DiskServiceError.operationFailed(BackendOperationError(
+                    code: "identity_changed",
+                    message: "The selected device changed. Refresh and try again.",
+                    platformCode: nil
+                ))
+            }
+        )
+        await store.refresh()
+        let volume = try #require(store.nodes.flatMap(\.flattened).last)
+
+        await store.perform(.unmount, on: volume)
+
+        #expect(executions.withLock { $0 } == 0)
+        #expect(store.operationFailed)
+        #expect(store.operationMessage == "Unmount failed: The selected device changed. Refresh and try again.")
     }
 }

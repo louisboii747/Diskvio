@@ -225,6 +225,40 @@ nonisolated enum DiskAction: String, Codable, Sendable {
     }
 }
 
+nonisolated struct PendingDiskOperation: Identifiable, Sendable {
+    let action: DiskAction
+    let node: DeviceNode
+
+    var id: String { "\(action.rawValue):\(node.device.identifier)" }
+
+    var title: String {
+        switch action {
+        case .mount: "Mount \(node.device.name)?"
+        case .unmount: "Unmount \(node.device.name)?"
+        case .eject: "Eject \(node.device.name)?"
+        }
+    }
+
+    var message: String {
+        switch action {
+        case .mount:
+            "Diskvio will ask macOS to mount this volume."
+        case .unmount:
+            "Open files on this volume may become unavailable. Save your work and close files stored on it before continuing."
+        case .eject:
+            "All volumes on this disk will become unavailable. Save your work and close files stored on the disk before continuing."
+        }
+    }
+
+    var confirmationTitle: String {
+        switch action {
+        case .mount: "Mount"
+        case .unmount: "Unmount"
+        case .eject: "Eject"
+        }
+    }
+}
+
 nonisolated struct OperationRequest: Encodable, Sendable {
     let action: DiskAction
     let identifier: String

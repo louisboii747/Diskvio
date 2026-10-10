@@ -29,15 +29,14 @@ struct DeviceActionButtons: View {
     var body: some View {
         ForEach(node.device.actions ?? [], id: \.rawValue) { action in
             Button(action.title, systemImage: action.symbol) {
-                Task { await store.perform(action, on: node) }
+                store.request(action, from: node)
             }
             .disabled(store.isBusy)
             .help("\(action.title) \(node.device.name)")
         }
         if node.kind != .disk, node.disk.device.actions?.contains(.eject) == true {
             Button("Eject Disk", systemImage: "eject") {
-                let diskNode = DeviceNode(id: node.id, kind: .disk, device: node.disk.device, disk: node.disk)
-                Task { await store.perform(.eject, on: diskNode) }
+                store.request(.eject, from: node)
             }
             .disabled(store.isBusy)
             .help("Eject \(node.disk.device.name) and its volumes")

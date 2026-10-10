@@ -12,14 +12,21 @@ final class DiskStore: ObservableObject {
     @Published private(set) var operationMessage: String?
     @Published private(set) var operationFailed = false
     @Published private(set) var monitoringError: String?
+    @Published var pendingOperation: PendingDiskOperation?
 
     private let loadInventory: @Sendable () throws -> DiskInventory
     private let runOperation: @Sendable (OperationRequest) throws -> OperationOutcome
+    private let loadCapabilities: @Sendable (String) throws -> OperationCapabilities
+    private let validateOperation: @Sendable (OperationRequest) throws -> OperationValidation
 
     init(loadInventory: @escaping @Sendable () throws -> DiskInventory = { try DiskService.inventory() },
-         runOperation: @escaping @Sendable (OperationRequest) throws -> OperationOutcome = { try DiskService.perform($0) }) {
+         runOperation: @escaping @Sendable (OperationRequest) throws -> OperationOutcome = { try DiskService.perform($0) },
+         loadCapabilities: @escaping @Sendable (String) throws -> OperationCapabilities = { try DiskService.supportedOperations(identifier: $0) },
+         validateOperation: @escaping @Sendable (OperationRequest) throws -> OperationValidation = { try DiskService.validate($0) }) {
         self.loadInventory = loadInventory
         self.runOperation = runOperation
+        self.loadCapabilities = loadCapabilities
+        self.validateOperation = validateOperation
     }
 
     private var monitor: DiskMonitor?
@@ -32,6 +39,45 @@ final class DiskStore: ObservableObject {
     var nodes: [DeviceNode] { inventory.nodes }
     var selectedNode: DeviceNode? { nodes.flatMap(\.flattened).first { $0.id == selection } }
     var isBusy: Bool { isLoading || operationInProgress != nil }
+    var selectedUSBNode: DeviceNode? {
+        guard let node = selectedNode,
+              node.disk.internal == false,
+              node.disk.connectionType?.localizedCaseInsensitiveContains("USB") == true else { return nil }
+        return node
+    }
+
+    func target(for action: DiskAction, from node: DeviceNode) -> DeviceNode? {
+        if node.device.actions?.contains(action) == true { return node }
+        guard action == .eject,
+              node.kind != .disk,
+              node.disk.device.actions?.contains(.eject) == true else { return nil }
+        return DeviceNode(
+            id: node.id,
+            kind: .disk,
+            device: node.disk.device,
+            disk: node.disk
+        )
+    }
+
+    func canRequest(_ action: DiskAction, from node: DeviceNode?) -> Bool {
+        guard !isBusy, let node else { return false }
+        return target(for: action, from: node) != nil
+    }
+
+    func request(_ action: DiskAction, from node: DeviceNode) {
+        guard let target = target(for: action, from: node), !isBusy else { return }
+        if action == .mount {
+            Task { await perform(action, on: target) }
+        } else {
+            pendingOperation = PendingDiskOperation(action: action, node: target)
+        }
+    }
+
+    func confirmPendingOperation() {
+        guard let pendingOperation else { return }
+        self.pendingOperation = nil
+        Task { await perform(pendingOperation.action, on: pendingOperation.node) }
+    }
 
     func start() async {
         guard monitor == nil else { return }
@@ -97,6 +143,21 @@ final class DiskStore: ObservableObject {
         operationInProgress = "\(action.title) · \(node.device.name)"
         operationMessage = nil
         do {
+            let capabilitiesLoader = loadCapabilities
+            let capabilities = try await Task.detached(priority: .userInitiated) {
+                try capabilitiesLoader(request.identifier)
+            }.value
+            guard capabilities.actions.contains(action) else {
+                throw DiskServiceError.operationFailed(BackendOperationError(
+                    code: "unsupported_operation",
+                    message: "\(action.title) is no longer available for this device.",
+                    platformCode: nil
+                ))
+            }
+            let validator = validateOperation
+            _ = try await Task.detached(priority: .userInitiated) {
+                try validator(request)
+            }.value
             let operation = runOperation
             let outcome = try await Task.detached(priority: .userInitiated) { try operation(request) }.value
             operationMessage = outcome.message
