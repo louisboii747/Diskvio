@@ -43,3 +43,5 @@ Generated Files/
 **/xcuserdata/
 *.xcuserstate
 DerivedData/
+macos/.build/
+macos/.swiftpm/

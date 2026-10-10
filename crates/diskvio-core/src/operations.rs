@@ -8,6 +8,8 @@ pub enum DiskOperation {
     Mount,
     Unmount,
     Eject,
+    RenameVolume,
+    SetDriveLetter,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,6 +17,12 @@ pub struct OperationRequest {
     pub action: DiskOperation,
     pub identifier: String,
     pub expected_identity: String,
+    #[serde(default)]
+    pub volume_label: Option<String>,
+    #[serde(default)]
+    pub drive_letter: Option<String>,
+    #[serde(default)]
+    pub expected_mount_points: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +98,10 @@ pub struct OperationCapabilities {
     pub device_kind: DeviceKind,
     pub identity_token: Option<String>,
     pub actions: Vec<DiskOperation>,
+    pub unsupported_reason: Option<String>,
+    pub label_max_length: Option<usize>,
+    #[serde(default)]
+    pub limitations: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -170,11 +182,33 @@ pub fn supported_operations_in(
     let mut inventory = inventory.clone();
     annotate_operations(&mut inventory);
     let (device, kind) = unique_target(&inventory, identifier)?;
+    let windows = inventory
+        .disks
+        .iter()
+        .any(|d| d.device.identifier.starts_with("PhysicalDrive"));
     Ok(OperationCapabilities {
         identifier: device.identifier.clone(),
         device_kind: kind,
         identity_token: device.identity_token.clone(),
         actions: device.actions.clone(),
+        unsupported_reason: device.actions.is_empty().then(|| {
+            if !inventory.warnings.is_empty() {
+                "Discovery is incomplete. Resolve the reported warnings before making changes."
+            } else if windows {
+                "This device is inspection-only. Management requires an identified external USB basic-data volume, supported filesystem and complete safety metadata. Protected, paging-file, hidden, offline and read-only devices are excluded."
+            } else {
+                "This device is inspection-only. Protected, internal, locked, unknown or unsupported devices cannot be managed."
+            }.to_owned()
+        }),
+        label_max_length: device.actions.contains(&DiskOperation::RenameVolume)
+            .then(|| label_limit(device)).flatten(),
+        limitations: if windows {
+            vec!["Creating and deleting partitions are not supported in this milestone. Unmapped space may include partition-table metadata.".into(),
+                 "Physical eject is not supported on Windows.".into()]
+        } else {
+            vec!["Creating, deleting and resizing partitions or APFS volumes are not supported in this milestone. Drive letters apply only to Windows.".into(),
+                 "Renaming requires a mounted, explicitly writable external APFS, HFS, FAT or exFAT volume with a verified UUID. Protected roles and snapshots are excluded.".into()]
+        },
     })
 }
 
@@ -199,6 +233,7 @@ fn protected(device: &Device) -> bool {
     device.safety.system == Some(true)
         || device.safety.boot == Some(true)
         || device.safety.recovery == Some(true)
+        || device.safety.page_file == Some(true)
         || device.mount_point.as_deref().is_some_and(protected_path)
         || device.mount_points.iter().any(|path| protected_path(path))
 }
@@ -325,13 +360,38 @@ fn volume_actions(device: &Device, locked: Option<bool>) -> Vec<DiskOperation> {
     {
         return vec![];
     }
-    vec![
+    let mut actions = vec![
         if device.mount_point.is_some() || !device.mount_points.is_empty() {
             DiskOperation::Unmount
         } else {
             DiskOperation::Mount
         },
-    ]
+    ];
+    // Existing mount support is preserved; label changes require stronger evidence.
+    if valid_macos_target(device)
+        && device.safety.read_only == Some(false)
+        && device.mount_point.is_some()
+        && device.volume_uuid.as_deref().is_some_and(valid_uuid)
+        && device.filesystem.as_ref().is_some_and(|fs| {
+            matches!(
+                fs.kind,
+                crate::FilesystemKind::Apfs
+                    | crate::FilesystemKind::Hfs
+                    | crate::FilesystemKind::Fat
+                    | crate::FilesystemKind::Exfat
+            )
+        })
+    {
+        actions.push(DiskOperation::RenameVolume);
+    }
+    actions
+}
+
+fn valid_macos_target(device: &Device) -> bool {
+    device.identifier.strip_prefix("disk").is_some_and(|rest| {
+        rest.split('s')
+            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
+    })
 }
 
 pub(crate) fn valid_volume_path(path: &str) -> bool {
@@ -386,6 +446,7 @@ fn windows_volume_supported(
         && device.safety.hidden == Some(false)
         && device.safety.read_only == Some(false)
         && device.safety.offline == Some(false)
+        && device.safety.page_file == Some(false)
         && device.mount_points.len() <= 1
         && device
             .mount_points
@@ -463,6 +524,12 @@ pub(crate) fn annotate_operations(inventory: &mut DiskInventory) {
                     )
                 {
                     volume.device.actions = volume_actions(&volume.device, None);
+                    if !volume.device.actions.is_empty() {
+                        volume
+                            .device
+                            .actions
+                            .extend([DiskOperation::RenameVolume, DiskOperation::SetDriveLetter]);
+                    }
                 }
             }
         }
@@ -710,7 +777,109 @@ pub(crate) fn validate_request(
             ),
         ));
     }
+    validate_parameters(device, request)?;
     Ok(device.clone())
+}
+
+fn label_limit(device: &Device) -> Option<usize> {
+    match device.filesystem.as_ref()?.kind {
+        // Deliberately conservative cross-filesystem policy, measured in UTF-16 units.
+        crate::FilesystemKind::Apfs | crate::FilesystemKind::Hfs if valid_macos_target(device) => {
+            Some(63)
+        }
+        crate::FilesystemKind::Ntfs => Some(32),
+        crate::FilesystemKind::Fat | crate::FilesystemKind::Exfat => Some(11),
+        _ => None,
+    }
+}
+
+pub(crate) fn validate_parameters(
+    device: &Device,
+    request: &OperationRequest,
+) -> Result<(), OperationError> {
+    let invalid = |message| OperationError::new(OperationErrorKind::InvalidRequest, message);
+    if matches!(
+        request.action,
+        DiskOperation::RenameVolume | DiskOperation::SetDriveLetter
+    ) && request.expected_mount_points.as_ref() != Some(&device.mount_points)
+    {
+        return Err(OperationError::new(
+            OperationErrorKind::IdentityChanged,
+            "The confirmed access paths are missing or changed. Refresh and preview the operation again.",
+        ));
+    }
+    match request.action {
+        DiskOperation::RenameVolume => {
+            let label = request
+                .volume_label
+                .as_deref()
+                .ok_or_else(|| invalid("A new volume label is required"))?;
+            let limit = label_limit(device)
+                .ok_or_else(|| invalid("Unsupported filesystem for label changes"))?;
+            let macos = valid_macos_target(device);
+            let native_mac = macos
+                && device.filesystem.as_ref().is_some_and(|fs| {
+                    matches!(
+                        fs.kind,
+                        crate::FilesystemKind::Apfs | crate::FilesystemKind::Hfs
+                    )
+                });
+            if request.drive_letter.is_some()
+                || label.encode_utf16().count() > limit
+                || label.chars().any(|c| {
+                    c.is_control()
+                        || if native_mac {
+                            ":/".contains(c)
+                        } else {
+                            "\\/:*?\"<>|+.,;=[]".contains(c)
+                        }
+                })
+                || label.trim() != label
+                || (macos
+                    && (label.is_empty() || label.starts_with(['.', '-']) || label.len() > 127))
+            {
+                return Err(invalid(
+                    "The label is too long, has surrounding whitespace or contains unsupported characters",
+                ));
+            }
+            if device.volume_label.as_deref() == Some(label) {
+                return Err(OperationError::new(
+                    OperationErrorKind::InvalidState,
+                    "The volume already uses this label",
+                ));
+            }
+        }
+        DiskOperation::SetDriveLetter => {
+            let letter = request
+                .drive_letter
+                .as_deref()
+                .ok_or_else(|| invalid("A drive letter is required"))?;
+            if request.volume_label.is_some()
+                || letter.len() != 1
+                || !(b'D'..=b'Z').contains(&letter.as_bytes()[0])
+            {
+                return Err(invalid(
+                    "Choose one uppercase drive letter from D through Z",
+                ));
+            }
+            if device.drive_letter.as_deref() == Some(letter) {
+                return Err(OperationError::new(
+                    OperationErrorKind::InvalidState,
+                    "The volume already uses this drive letter",
+                ));
+            }
+        }
+        _ if request.volume_label.is_some()
+            || request.drive_letter.is_some()
+            || request.expected_mount_points.is_some() =>
+        {
+            return Err(invalid(
+                "This action does not accept label or drive-letter parameters",
+            ));
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 fn check_identifier(identifier: &str) -> Result<(), OperationError> {
@@ -792,6 +961,9 @@ mod tests {
         let mut inventory = inventory(Some(false), Some(1));
         annotate_operations(&mut inventory);
         let request = OperationRequest {
+            expected_mount_points: None,
+            volume_label: None,
+            drive_letter: None,
             action: DiskOperation::Eject,
             identifier: "disk2".into(),
             expected_identity: inventory.disks[0].device.identity_token.clone().unwrap(),
@@ -817,6 +989,9 @@ mod tests {
             [DiskOperation::Unmount]
         );
         let request = OperationRequest {
+            expected_mount_points: None,
+            volume_label: None,
+            drive_letter: None,
             action: DiskOperation::Mount,
             identifier: "disk2s1".into(),
             expected_identity: inventory.disks[0].partitions[0]
@@ -954,6 +1129,9 @@ mod tests {
         );
         let volume = &inventory.apfs_containers[0].volumes[0].device;
         let request = OperationRequest {
+            expected_mount_points: None,
+            volume_label: None,
+            drive_letter: None,
             action: DiskOperation::Mount,
             identifier: volume.identifier.clone(),
             expected_identity: volume.identity_token.clone().unwrap(),
@@ -980,11 +1158,107 @@ mod tests {
     }
 
     #[test]
+    fn apfs_rename_is_blocked_for_protected_roles_snapshots_and_unresolved_stores() {
+        let mut inventory = inventory(Some(false), Some(1));
+        inventory.disks[0].partitions[0].apfs_container_id = Some("disk3".into());
+        inventory.apfs_containers.push(ApfsContainer {
+            device: Device {
+                identifier: "disk3".into(),
+                ..Default::default()
+            },
+            uuid: Some("container".into()),
+            physical_store_ids: vec!["disk2s1".into()],
+            volumes: vec![ApfsVolume {
+                device: Device {
+                    identifier: "disk3s1".into(),
+                    volume_uuid: Some("11111111-2222-3333-4444-555555555555".into()),
+                    filesystem: Some(Filesystem::new("apfs", "APFS")),
+                    mount_point: Some("/Volumes/USB".into()),
+                    mount_points: vec!["/Volumes/USB".into()],
+                    safety: crate::DeviceSafety {
+                        read_only: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                roles: vec![],
+                locked: Some(false),
+                encrypted: Some(false),
+                mounted_snapshots: vec![],
+                quota_bytes: None,
+                reserve_bytes: None,
+            }],
+        });
+        annotate_operations(&mut inventory);
+        let safe = inventory.clone();
+        assert!(
+            supported_operations_in(&safe, "disk3s1")
+                .unwrap()
+                .actions
+                .contains(&DiskOperation::RenameVolume)
+        );
+        assert_eq!(
+            supported_operations_in(&safe, "disk3s1")
+                .unwrap()
+                .label_max_length,
+            Some(63)
+        );
+        for role in ["System", "Data", "Recovery", "Preboot", "VM"] {
+            let mut blocked = safe.clone();
+            blocked.apfs_containers[0].volumes[0].roles = vec![role.into()];
+            assert!(
+                supported_operations_in(&blocked, "disk3s1")
+                    .unwrap()
+                    .actions
+                    .is_empty()
+            );
+        }
+        for locked in [None, Some(true)] {
+            let mut blocked = safe.clone();
+            blocked.apfs_containers[0].volumes[0].locked = locked;
+            assert!(
+                supported_operations_in(&blocked, "disk3s1")
+                    .unwrap()
+                    .actions
+                    .is_empty()
+            );
+        }
+        let mut blocked = safe.clone();
+        blocked.apfs_containers[0]
+            .physical_store_ids
+            .push("missing-store".into());
+        assert!(
+            supported_operations_in(&blocked, "disk3s1")
+                .unwrap()
+                .actions
+                .is_empty()
+        );
+        let mut blocked = safe;
+        blocked.apfs_containers[0].volumes[0]
+            .mounted_snapshots
+            .push(crate::ApfsSnapshot {
+                identifier: "disk3s1s1".into(),
+                name: None,
+                uuid: None,
+                mount_point: Some("/Volumes/Snapshot".into()),
+            });
+        assert!(
+            supported_operations_in(&blocked, "disk3s1")
+                .unwrap()
+                .actions
+                .is_empty()
+        );
+    }
+
+    #[test]
     fn validates_using_fresh_policy_instead_of_advertised_actions() {
         let mut inventory = inventory(Some(true), Some(1));
         inventory.disks[0].device.actions = vec![DiskOperation::Eject];
         inventory.disks[0].device.identity_token = Some("forged".into());
         let request = OperationRequest {
+            expected_mount_points: None,
+            volume_label: None,
+            drive_letter: None,
             action: DiskOperation::Eject,
             identifier: "disk2".into(),
             expected_identity: "forged".into(),
@@ -1003,6 +1277,9 @@ mod tests {
         let mut inventory = inventory(Some(false), Some(1));
         annotate_operations(&mut inventory);
         let request = OperationRequest {
+            expected_mount_points: None,
+            volume_label: None,
+            drive_letter: None,
             action: DiskOperation::Mount,
             identifier: "disk2s1".into(),
             expected_identity: inventory.disks[0].partitions[0]
@@ -1029,6 +1306,9 @@ mod tests {
         let mut inventory = inventory(Some(false), Some(1));
         annotate_operations(&mut inventory);
         let request = OperationRequest {
+            expected_mount_points: None,
+            volume_label: None,
+            drive_letter: None,
             action: DiskOperation::Mount,
             identifier: "disk2s1".into(),
             expected_identity: inventory.disks[0].partitions[0]
@@ -1060,6 +1340,9 @@ mod tests {
         annotate_operations(&mut inventory);
         let device = &inventory.disks[0].partitions[0].device;
         let mut request = OperationRequest {
+            expected_mount_points: None,
+            volume_label: None,
+            drive_letter: None,
             action: DiskOperation::Eject,
             identifier: device.identifier.clone(),
             expected_identity: device.identity_token.clone().unwrap(),

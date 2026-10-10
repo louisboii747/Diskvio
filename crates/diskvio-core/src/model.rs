@@ -15,6 +15,9 @@ pub struct DiskInventory {
 pub struct Device {
     pub identifier: String,
     pub name: String,
+    /// Filesystem label, distinct from a media or synthesized device name.
+    #[serde(default)]
+    pub volume_label: Option<String>,
     pub media_name: Option<String>,
     pub size_bytes: Option<u64>,
     pub filesystem: Option<Filesystem>,
@@ -35,6 +38,10 @@ pub struct Device {
     pub mount_points: Vec<String>,
     #[serde(default)]
     pub safety: DeviceSafety,
+    #[serde(default)]
+    pub health_status: Option<String>,
+    #[serde(default)]
+    pub operational_status: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -45,6 +52,8 @@ pub struct DeviceSafety {
     pub hidden: Option<bool>,
     pub read_only: Option<bool>,
     pub offline: Option<bool>,
+    #[serde(default)]
+    pub page_file: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -67,6 +76,8 @@ pub struct PhysicalDisk {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Partition {
     pub device: Device,
+    #[serde(default)]
+    pub role: Option<PartitionRole>,
     /// Partition type is distinct from the filesystem that may occupy it.
     pub content_type: Option<String>,
     pub offset_bytes: Option<u64>,
@@ -85,6 +96,55 @@ pub struct Partition {
     pub no_default_drive_letter: Option<bool>,
     #[serde(default)]
     pub volumes: Vec<Volume>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PartitionRole {
+    EfiSystem,
+    Recovery,
+    MicrosoftReserved,
+    BasicData,
+    Unknown,
+}
+
+impl PartitionRole {
+    pub fn from_windows_name(name: Option<&str>) -> Self {
+        match name.map(str::to_ascii_lowercase).as_deref() {
+            Some("recovery") => Self::Recovery,
+            Some("reserved") => Self::MicrosoftReserved,
+            Some("basic" | "ifs") => Self::BasicData,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn windows(gpt: Option<&str>, mbr: Option<u16>) -> Self {
+        if let Some(gpt) = gpt {
+            return match gpt.trim_matches(['{', '}']).to_ascii_lowercase().as_str() {
+                "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" => Self::EfiSystem,
+                "de94bba4-06d1-4d40-a16a-bfd50179d6ac" => Self::Recovery,
+                "e3c9e316-0b5c-4db8-817d-f92df00215ae" => Self::MicrosoftReserved,
+                "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7" => Self::BasicData,
+                _ => Self::Unknown,
+            };
+        }
+        match mbr {
+            Some(0xef) => Self::EfiSystem,
+            Some(0x27) => Self::Recovery,
+            Some(1 | 4 | 6 | 7 | 11 | 12 | 14) => Self::BasicData,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn friendly_name(self) -> Option<&'static str> {
+        match self {
+            Self::EfiSystem => Some("EFI System Partition"),
+            Self::Recovery => Some("Recovery Partition"),
+            Self::MicrosoftReserved => Some("Microsoft Reserved"),
+            Self::BasicData => Some("Basic Data"),
+            Self::Unknown => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

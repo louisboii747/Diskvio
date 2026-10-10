@@ -10,7 +10,32 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
-            <!-- Other app resources here -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="PartitionSystemBrush" Color="#986000" />
+                    <SolidColorBrush x:Key="PartitionRecoveryBrush" Color="#247442" />
+                    <SolidColorBrush x:Key="PartitionReservedBrush" Color="#757575" />
+                    <SolidColorBrush x:Key="PartitionDataBrush" Color="#2463AB" />
+                    <SolidColorBrush x:Key="PartitionUnknownBrush" Color="#595959" />
+                    <SolidColorBrush x:Key="PartitionUnmappedBrush" Color="#303030" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="PartitionSystemBrush" Color="#E8B45D" />
+                    <SolidColorBrush x:Key="PartitionRecoveryBrush" Color="#73C991" />
+                    <SolidColorBrush x:Key="PartitionReservedBrush" Color="#ADADAD" />
+                    <SolidColorBrush x:Key="PartitionDataBrush" Color="#74B5F4" />
+                    <SolidColorBrush x:Key="PartitionUnknownBrush" Color="#858585" />
+                    <SolidColorBrush x:Key="PartitionUnmappedBrush" Color="#121212" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="PartitionSystemBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PartitionRecoveryBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PartitionReservedBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PartitionDataBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PartitionUnknownBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PartitionUnmappedBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

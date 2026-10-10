@@ -10,7 +10,7 @@
         "gpt_type": "{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}", "type": "Basic",
         "offset_bytes": 1048576, "size_bytes": 999000000000, "access_paths": ["C:\\"],
         "system": true, "boot": true, "active": false, "hidden": false, "read_only": false,
-        "offline": false, "shadow_copy": false, "no_default_drive_letter": false,
+        "offline": false, "page_file": false, "shadow_copy": false, "no_default_drive_letter": false,
         "volumes": [{"path": "\\\\?\\Volume{cccccccc-1111-2222-3333-444444444444}\\", "unique_id": "system-volume",
           "drive_letter": "C", "label": "Windows", "filesystem": "NTFS", "size_bytes": 999000000000, "available_bytes": 500000000000}]
       }]
@@ -26,7 +26,7 @@
         "offset_bytes": 1048576, "size_bytes": 63900000000,
         "access_paths": ["E:\\", "\\\\?\\Volume{11111111-2222-3333-4444-555555555555}\\"],
         "system": false, "boot": false, "active": false, "hidden": false, "read_only": false,
-        "offline": false, "shadow_copy": false, "no_default_drive_letter": false,
+        "offline": false, "page_file": false, "shadow_copy": false, "no_default_drive_letter": false,
         "volumes": [{"path": "\\\\?\\Volume{11111111-2222-3333-4444-555555555555}\\", "unique_id": "usb-volume",
           "drive_letter": "E", "label": "Données", "filesystem": "NTFS", "size_bytes": 63900000000, "available_bytes": 20000000000}]
       }]

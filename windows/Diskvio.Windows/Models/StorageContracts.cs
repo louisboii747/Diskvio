@@ -7,7 +7,9 @@ public enum DiskAction
 {
     [JsonStringEnumMemberName("mount")] Mount,
     [JsonStringEnumMemberName("unmount")] Unmount,
-    [JsonStringEnumMemberName("eject")] Eject
+    [JsonStringEnumMemberName("eject")] Eject,
+    [JsonStringEnumMemberName("rename_volume")] RenameVolume,
+    [JsonStringEnumMemberName("set_drive_letter")] SetDriveLetter
 }
 
 public sealed class DiskActionConverter() : JsonStringEnumConverter<DiskAction>(allowIntegerValues: false);
@@ -38,6 +40,7 @@ public sealed record StoragePartition
 {
     [JsonPropertyName("device")] public required StorageDevice Device { get; init; }
     [JsonPropertyName("number")] public uint? Number { get; init; }
+    [JsonPropertyName("role")] public string? Role { get; init; }
     [JsonPropertyName("content_type")] public string? ContentType { get; init; }
     [JsonPropertyName("offset_bytes")] public ulong? OffsetBytes { get; init; }
     [JsonPropertyName("gpt_type")] public string? GptType { get; init; }
@@ -71,6 +74,8 @@ public sealed record StorageDevice
     [JsonPropertyName("mount_points")] public List<string> MountPoints { get; init; } = [];
     [JsonPropertyName("actions")] public List<DiskAction> Actions { get; init; } = [];
     [JsonPropertyName("safety")] public StorageSafety Safety { get; init; } = new();
+    [JsonPropertyName("health_status")] public string? HealthStatus { get; init; }
+    [JsonPropertyName("operational_status")] public List<string> OperationalStatus { get; init; } = [];
 }
 
 public sealed record StorageFilesystem
@@ -87,6 +92,7 @@ public sealed record StorageSafety
     [JsonPropertyName("hidden")] public bool? Hidden { get; init; }
     [JsonPropertyName("read_only")] public bool? ReadOnly { get; init; }
     [JsonPropertyName("offline")] public bool? Offline { get; init; }
+    [JsonPropertyName("page_file")] public bool? PageFile { get; init; }
 }
 
 public sealed record DiskOperationRequest
@@ -94,6 +100,9 @@ public sealed record DiskOperationRequest
     [JsonPropertyName("action")] public required DiskAction Action { get; init; }
     [JsonPropertyName("identifier")] public required string Identifier { get; init; }
     [JsonPropertyName("expected_identity")] public required string ExpectedIdentity { get; init; }
+    [JsonPropertyName("volume_label")] public string? VolumeLabel { get; init; }
+    [JsonPropertyName("drive_letter")] public string? DriveLetter { get; init; }
+    [JsonPropertyName("expected_mount_points")] public List<string>? ExpectedMountPoints { get; init; }
 }
 
 public sealed record DiskOperationOutcome
@@ -109,6 +118,9 @@ public sealed record OperationCapabilities
     [JsonPropertyName("device_kind")] public required string DeviceKind { get; init; }
     [JsonPropertyName("identity_token")] public string? IdentityToken { get; init; }
     [JsonPropertyName("actions")] public required List<DiskAction> Actions { get; init; }
+    [JsonPropertyName("unsupported_reason")] public string? UnsupportedReason { get; init; }
+    [JsonPropertyName("label_max_length")] public int? LabelMaxLength { get; init; }
+    [JsonPropertyName("limitations")] public List<string> Limitations { get; init; } = [];
 }
 
 public sealed record OperationValidation

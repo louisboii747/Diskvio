@@ -18,7 +18,7 @@ components:
     padding: "{spacing.inset}"
   partition-map:
     rounded: "{rounded.partition-map}"
-    height: "38px"
+    height: "64px"
   partition-legend-marker:
     size: "8px"
 ---
@@ -51,14 +51,14 @@ Native controls own accent, selection, hover, focus, and disabled appearance. Th
 
 ### Secondary
 
-**Partition hues** are SwiftUI system blue, teal, orange, purple, pink, and indigo, assigned in that order and repeated by partition index. The legend and segment share the same hue. These colors distinguish physical partitions; they do not encode filesystem type, risk, or operation success. Selected segments use full opacity, while other segments use the implemented reduced opacity recorded in the sidecar.
+**Partition categories** use native orange for system/EFI, green for recovery, grey for reserved/metadata, blue for data/APFS stores, and the native secondary-label tone for unknown types. Categories derive from reported role/content and protection metadata. Names and a legend accompany colours; selected segments receive a two-point accent border. Tinted fills retain semantic text foregrounds. Colour does not establish whether an operation is safe; backend capabilities do.
 
 ### Neutral
 
 - **Default foreground:** native text and primary values.
 - **Secondary foreground:** metadata, captions, explanations, and supporting symbols.
 - **Tertiary foreground:** child-row disclosure chevrons.
-- **Quaternary fill:** notices and the partition-map base showing gaps and metadata.
+- **Quaternary fill:** notices and restrained metadata badges.
 - **Text background:** `NSColor.textBackgroundColor` behind the central detail view.
 
 These dynamic native values cannot be represented faithfully by static CSS color tokens. Their exact SwiftUI/AppKit mappings live in `.impeccable/design.json`; no fixed hexadecimal substitutes or synthesized tonal ramps are normative.
@@ -67,7 +67,7 @@ These dynamic native values cannot be represented faithfully by static CSS color
 
 ## Typography
 
-**System Font:** SwiftUI's default macOS system typography. SF Symbols provide interface icons; there are no custom font or icon assets.
+**System Font:** SwiftUI's default macOS system typography. SF Symbols provide interface icons; there are no custom fonts or interface glyph assets. The application icon uses the supplied artwork in `assets/`.
 
 ### Hierarchy
 
@@ -127,11 +127,17 @@ Notices pair a secondary SF Symbol with a medium-weight title and secondary capt
 
 ### Physical Partition Map
 
-The map's fixed-height track depicts physical partition capacity and offset relative to its physical disk. `PartitionMapLayout` computes immutable physical segments; `PartitionMapView` uses the same segment identity for geometry, color, track selection, and legend selection. Reported offsets take precedence; missing offsets follow the prior partition's end, and geometry is bounded by the physical disk capacity. Selected segments retain full opacity and a primary-foreground border.
+The 64-point track compares reported physical partition capacities with a 48-point minimum target and four-point spacing. Remaining width is capacity-weighted; dense layouts scroll horizontally. The geometry is explicitly schematic and does not plot gaps or claim unallocated regions. Unknown capacities remain unknown, and APFS volumes do not receive independent physical segments.
 
-The adaptive legend supplies a full-size text target for every partition, including segments too small to click comfortably. Names can wrap to two lines; identifiers and tabular capacity values accompany each hue. Tooltips and accessibility labels retain partition identity and capacity. Neutral track space represents gaps and partition-map metadata. APFS volumes do not receive independent physical-partition segments.
+A synchronized partition list shows names, formats, mount paths/identifiers and exact capacities. Tooltips, accessibility labels, keyboard-focusable buttons and context menus keep tiny partitions inspectable. Selection uses an accent border and list highlight; an APFS volume highlights its physical store. `PartitionPresentation` supplies consistent names/categories, while `PartitionMapLayout` supplies independently tested widths.
 
-**The Physical Scale Rule.** Map geometry follows real physical partition bytes and offsets; container and volume sharing remain explicit in text.
+**The Partition Capacity Rule.** Compare reported physical capacities with documented minimum visual widths, retain exact values in text, and keep APFS sharing explicit. Do not infer allocatable space from gaps.
+
+### Management and Validation Scope
+
+Rename uses a native sheet with label entry, backend validation preview and explicit confirmation. Every mount/unmount/eject also requires confirmation. Context actions and the selected-item management section use real backend capabilities and explanations. System/boot/recovery, external/USB, read-only and encryption badges appear only from reported metadata.
+
+Milestone 5 portable Swift models and Rust fixtures were tested on Windows. Historical native layout observations earlier in this document predate these changes. Current native Xcode build, light/dark rendering, enlarged text, VoiceOver and external-volume rename need a Mac; see `docs/milestone-5-macos-refinement.md`.
 
 ## Do's and Don'ts
 
@@ -146,7 +152,7 @@ The adaptive legend supplies a full-size text target for every partition, includ
 ### Don't:
 
 - **Don't** replace appearance-aware native colors or semantic text styles with guessed fixed values.
-- **Don't** assign status or filesystem meaning to the partition color sequence.
+- **Don't** use colour alone to communicate category, selection or operation availability.
 - **Don't** render shared APFS volume capacity as an independent physical partition.
 - **Don't** generalize the map radius into a custom style for native controls.
 - **Don't** present source-level layout or accessibility affordances as runtime validation.

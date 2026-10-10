@@ -78,7 +78,9 @@ struct DiskService: Sendable {
     }
 
     nonisolated static func validate(_ request: OperationRequest) throws -> OperationValidation {
-        let query = OperationQueryRequest(mode: "validate", action: request.action, identifier: request.identifier, expectedIdentity: request.expectedIdentity)
+        let query = OperationQueryRequest(mode: "validate", action: request.action, identifier: request.identifier,
+                                          expectedIdentity: request.expectedIdentity, volumeLabel: request.volumeLabel,
+                                          expectedMountPoints: request.expectedMountPoints)
         return try decodeValidation(operationResponseData(query))
     }
 

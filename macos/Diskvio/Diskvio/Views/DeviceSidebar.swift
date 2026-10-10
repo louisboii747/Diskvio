@@ -40,7 +40,7 @@ struct DeviceRow: View {
                 .foregroundColor(isSelected ? nil : .secondary)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(node.device.name).lineLimit(1).truncationMode(.tail)
+                Text(node.displayName).lineLimit(1).truncationMode(.tail)
                 ViewThatFits(in: .horizontal) {
                     Text("\(node.kind.rawValue) · \(node.capacityDescription)")
                         .fixedSize(horizontal: true, vertical: false)
@@ -52,8 +52,8 @@ struct DeviceRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 3)
-        .help("\(node.device.name) — \(node.device.identifier)\n\(node.kind.rawValue) · \(node.capacityDescription)")
+        .help("\(node.displayName) — \(node.device.identifier)\n\(node.kind.rawValue) · \(node.capacityDescription)")
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(node.device.name), \(node.kind.rawValue), \(node.device.identifier), \(node.capacityDescription)")
+        .accessibilityLabel("\(node.displayName), \(node.kind.rawValue), \(node.device.identifier), \(node.capacityDescription)")
     }
 }

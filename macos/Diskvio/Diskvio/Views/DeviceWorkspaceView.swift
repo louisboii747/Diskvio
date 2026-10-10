@@ -51,7 +51,7 @@ struct DeviceWorkspaceView: View {
                 if inline { showsInspectorPopover = false }
             }
         }
-        .navigationTitle(store.selectedNode?.device.name ?? "Diskvio")
+        .navigationTitle(store.selectedNode?.displayName ?? "Diskvio")
     }
 
     private var inspectorContent: some View {

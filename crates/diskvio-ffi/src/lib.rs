@@ -80,6 +80,9 @@ struct ApiRequest {
     action: Option<DiskOperation>,
     identifier: String,
     expected_identity: Option<String>,
+    volume_label: Option<String>,
+    drive_letter: Option<String>,
+    expected_mount_points: Option<Vec<String>>,
 }
 
 fn error_response(error: OperationError) -> serde_json::Value {
@@ -118,6 +121,9 @@ fn operation_response(bytes: &[u8]) -> serde_json::Value {
         action,
         identifier: request.identifier,
         expected_identity,
+        volume_label: request.volume_label,
+        drive_letter: request.drive_letter,
+        expected_mount_points: request.expected_mount_points,
     };
     match request.mode {
         RequestMode::Execute => match diskvio_core::perform_operation(&operation) {
@@ -238,6 +244,12 @@ mod tests {
         ));
         let validation: ApiRequest = serde_json::from_slice(br#"{"mode":"validate","action":"unmount","identifier":"disk2s1","expected_identity":"token"}"#).unwrap();
         assert!(matches!(validation.mode, RequestMode::Validate));
+        let rename: ApiRequest = serde_json::from_slice(br#"{"action":"rename_volume","identifier":"volume","expected_identity":"token","volume_label":"Work"}"#).unwrap();
+        assert_eq!(rename.action, Some(DiskOperation::RenameVolume));
+        assert_eq!(rename.volume_label.as_deref(), Some("Work"));
+        let letter: ApiRequest = serde_json::from_slice(br#"{"mode":"validate","action":"set_drive_letter","identifier":"volume","expected_identity":"token","drive_letter":"H"}"#).unwrap();
+        assert_eq!(letter.drive_letter.as_deref(), Some("H"));
+        assert!(serde_json::from_slice::<ApiRequest>(br#"{"action":"delete_partition","identifier":"partition","expected_identity":"token"}"#).is_err());
     }
 
     #[test]

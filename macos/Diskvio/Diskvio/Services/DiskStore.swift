@@ -13,6 +13,7 @@ final class DiskStore: ObservableObject {
     @Published private(set) var operationFailed = false
     @Published private(set) var monitoringError: String?
     @Published var pendingOperation: PendingDiskOperation?
+    @Published var renameTarget: DeviceNode?
 
     private let loadInventory: @Sendable () throws -> DiskInventory
     private let runOperation: @Sendable (OperationRequest) throws -> OperationOutcome
@@ -47,27 +48,18 @@ final class DiskStore: ObservableObject {
     }
 
     func target(for action: DiskAction, from node: DeviceNode) -> DeviceNode? {
-        if node.device.actions?.contains(action) == true { return node }
-        guard action == .eject,
-              node.kind != .disk,
-              node.disk.device.actions?.contains(.eject) == true else { return nil }
-        return DeviceNode(
-            id: node.id,
-            kind: .disk,
-            device: node.disk.device,
-            disk: node.disk
-        )
+        node.operationTarget(for: action)
     }
 
     func canRequest(_ action: DiskAction, from node: DeviceNode?) -> Bool {
-        guard !isBusy, let node else { return false }
-        return target(for: action, from: node) != nil
+        guard !isBusy, errorMessage == nil, let node else { return false }
+        return target(for: action, from: node)?.device.identityToken != nil
     }
 
     func request(_ action: DiskAction, from node: DeviceNode) {
-        guard let target = target(for: action, from: node), !isBusy else { return }
-        if action == .mount {
-            Task { await perform(action, on: target) }
+        guard canRequest(action, from: node), let target = target(for: action, from: node) else { return }
+        if action == .renameVolume {
+            renameTarget = target
         } else {
             pendingOperation = PendingDiskOperation(action: action, node: target)
         }
@@ -136,28 +128,15 @@ final class DiskStore: ObservableObject {
         if needsRefresh { scheduleRefresh() }
     }
 
-    func perform(_ action: DiskAction, on node: DeviceNode) async {
-        guard !isBusy, node.device.actions?.contains(action) == true,
+    func perform(_ action: DiskAction, on node: DeviceNode, volumeLabel: String? = nil) async {
+        guard !isBusy, action != .setDriveLetter, node.device.actions?.contains(action) == true,
               let identity = node.device.identityToken else { return }
-        let request = OperationRequest(action: action, identifier: node.device.identifier, expectedIdentity: identity)
-        operationInProgress = "\(action.title) · \(node.device.name)"
+        let request = OperationRequest(action: action, identifier: node.device.identifier, expectedIdentity: identity,
+                                       volumeLabel: volumeLabel, expectedMountPoints: action == .renameVolume ? node.device.confirmedMountPoints : nil)
+        operationInProgress = "\(action.title) · \(node.displayName)"
         operationMessage = nil
         do {
-            let capabilitiesLoader = loadCapabilities
-            let capabilities = try await Task.detached(priority: .userInitiated) {
-                try capabilitiesLoader(request.identifier)
-            }.value
-            guard capabilities.actions.contains(action) else {
-                throw DiskServiceError.operationFailed(BackendOperationError(
-                    code: "unsupported_operation",
-                    message: "\(action.title) is no longer available for this device.",
-                    platformCode: nil
-                ))
-            }
-            let validator = validateOperation
-            _ = try await Task.detached(priority: .userInitiated) {
-                try validator(request)
-            }.value
+            try await preview(request)
             let operation = runOperation
             let outcome = try await Task.detached(priority: .userInitiated) { try operation(request) }.value
             operationMessage = outcome.message
@@ -174,6 +153,31 @@ final class DiskStore: ObservableObject {
         let flattened = nodes.flatMap(\.flattened)
         if selection == nil || !flattened.contains(where: { $0.id == selection }) {
             selection = nodes.first?.id
+        }
+        if let pending = pendingOperation, !flattened.contains(where: { $0.device.identifier == pending.node.device.identifier && $0.device.identityToken == pending.node.device.identityToken }) {
+            pendingOperation = nil
+        }
+        if let target = renameTarget, !flattened.contains(where: { $0.device.identifier == target.device.identifier && $0.device.identityToken == target.device.identityToken }) {
+            renameTarget = nil
+        }
+    }
+
+    /// Read-only preview. Execution repeats this check against a fresh backend snapshot.
+    func preview(_ request: OperationRequest) async throws {
+        let capabilitiesLoader = loadCapabilities
+        let capabilities = try await Task.detached(priority: .userInitiated) { try capabilitiesLoader(request.identifier) }.value
+        guard capabilities.actions.contains(request.action) else {
+            throw DiskServiceError.operationFailed(BackendOperationError(code: "unsupported_operation",
+                message: "\(request.action.title) is no longer available for this device.", platformCode: nil))
+        }
+        guard capabilities.identityToken == request.expectedIdentity else {
+            throw DiskServiceError.operationFailed(BackendOperationError(code: "identity_changed",
+                message: "The selected device changed. Refresh and try again.", platformCode: nil))
+        }
+        let validator = validateOperation
+        let validation = try await Task.detached(priority: .userInitiated) { try validator(request) }.value
+        guard validation.valid, validation.action == request.action, validation.expectedIdentity == request.expectedIdentity else {
+            throw DiskServiceError.invalidResponse
         }
     }
 

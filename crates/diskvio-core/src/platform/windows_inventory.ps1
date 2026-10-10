@@ -2,6 +2,9 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 Import-Module Storage -ErrorAction Stop
 $warnings = [System.Collections.Generic.List[string]]::new()
+$pageFiles = @()
+try { $pageFiles = @(Get-CimInstance Win32_PageFileUsage -ErrorAction Stop | ForEach-Object { $_.Name }) }
+catch { $warnings.Add("Paging-file safety discovery: $($_.Exception.Message)") }
 $allVolumes = @(Get-Volume -ErrorAction Stop)
 $associatedIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 function Convert-Volume($v) {
@@ -13,6 +16,8 @@ function Convert-Volume($v) {
         filesystem = [string]$v.FileSystemType
         size_bytes = [uint64]$v.Size
         available_bytes = [uint64]$v.SizeRemaining
+        health_status = [string]$v.HealthStatus
+        operational_status = @($v.OperationalStatus | ForEach-Object { [string]$_ })
     }
 }
 $disks = @(Get-Disk -ErrorAction Stop | Sort-Object Number | ForEach-Object {
@@ -49,6 +54,10 @@ $disks = @(Get-Disk -ErrorAction Stop | Sort-Object Number | ForEach-Object {
                 offline = $p.IsOffline
                 shadow_copy = $p.IsShadowCopy
                 no_default_drive_letter = $p.NoDefaultDriveLetter
+                page_file = @($p.AccessPaths | Where-Object {
+                    $accessPath = $_
+                    @($pageFiles | Where-Object { $_.StartsWith($accessPath, [System.StringComparison]::OrdinalIgnoreCase) }).Count -gt 0
+                }).Count -gt 0
                 volumes = $volumes
             }
         })
@@ -71,6 +80,8 @@ $disks = @(Get-Disk -ErrorAction Stop | Sort-Object Number | ForEach-Object {
         offline = $d.IsOffline
         read_only = $d.IsReadOnly
         clustered = $d.IsClustered
+        health_status = [string]$d.HealthStatus
+        operational_status = @($d.OperationalStatus | ForEach-Object { [string]$_ })
         partitions = $partitions
     }
 })

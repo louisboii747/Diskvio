@@ -38,7 +38,7 @@ The MSBuild integration builds `diskvio_ffi.dll` for `x86_64-pc-windows-msvc` in
 
 The app displays **real physical disks, partitions and volumes** discovered through the Rust inventory API, with a proportional partition layout and a detailed inspector. It shows backend-reported capacities, filesystem, drive letters, mount locations and safety metadata. Refresh preserves selection using identifiers and available stable identity; a 15-second read-only poll detects device changes. Capacity uses decimal units.
 
-Mount and Unmount are enabled only for external USB volumes with matching backend capabilities and identity. Both require confirmation and fresh backend validation. Windows physical eject remains visibly unsupported. No format, partition editing, image writing or elevation controls exist. See [Milestone 4 Windows](docs/milestone-4-windows.md) for architecture, verified results, limitations and safe manual USB checks.
+Mount, Unmount, Rename label and Drive letter are enabled only for external USB basic-data volumes with matching backend capabilities, verified identity and complete safety metadata. Every mutation requires a preview/confirmation and fresh backend validation. Windows physical eject and partition creation/deletion remain unsupported. No format, image writing or elevation controls exist. See [Milestone 5 Windows refinement](docs/milestone-5-windows-refinement.md) for contracts, safety rules, validation limits and safe manual USB checks; [Milestone 4](docs/milestone-4-windows.md) records the original Windows foundation.
 
 ```powershell
 cargo fmt --all -- --check
@@ -62,9 +62,11 @@ The build phase also maps `x86_64` to `x86_64-apple-darwin` and combines archite
 
 ## Disk & partition explorer
 
-The macOS app displays real physical disks, partitions, APFS containers and volumes in a native sidebar, with a proportional partition map and a resizable properties inspector. It shows available filesystem and UUID information, mounted snapshots, hardware location/connection, and storage usage. Refresh preserves selection by hierarchy identity. Disk Arbitration notifications update the hierarchy on relevant device and mount changes without polling.
+The macOS app displays real physical disks, partitions, APFS containers and volumes in a native sidebar, with a capacity-weighted partition map, synchronized partition list and a resizable properties inspector. It shows available filesystem and UUID information, mounted snapshots, hardware location/connection, and storage usage. Refresh preserves selection by hierarchy identity. Disk Arbitration notifications update the hierarchy on relevant device and mount changes without polling.
 
-Mount, Unmount, and Eject appear in the toolbar and context menus only where the Rust backend permits them. Internal disks are inspection-only. Every operation requires an explicit action, verifies current device identity, and reports success or failure. Diskvio does not format, repartition, resize, delete, write raw disks, or flash images.
+Rename Volume, Mount, Unmount, and Eject appear in the toolbar and context menus only where the Rust backend permits them. Renaming uses a backend-validated preview and explicit confirmation; mounted external APFS/HFS/FAT/exFAT volumes require verified identity and writability. Internal disks are inspection-only. Every operation requires an explicit action, verifies current device identity, and reports success or failure. Diskvio does not format, repartition, resize, delete, write raw disks, or flash images.
+
+The supplied artwork in `assets/` now populates the macOS AppIcon catalogue and Windows executable/package icons. Reproduce exports with `python assets/export_icons.py` (Pillow required). See [macOS Milestone 5](docs/milestone-5-macos-refinement.md) for scope, validation limits and safe external-drive checks. Portable presentation tests run with `swift test --package-path macos`.
 
 For architecture, FFI ownership, operation policy and deployment details, see [macOS architecture](docs/macos-architecture.md). For validation and hardware test steps, see [macOS testing](docs/macos-testing.md).
 

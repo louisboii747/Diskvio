@@ -30,7 +30,7 @@
         {
           "name": "quaternary-fill",
           "source": ".background(.quaternary) / Rectangle().fill(.quaternary)",
-          "purpose": "Notice backgrounds and physical-map gaps."
+          "purpose": "Notice backgrounds and metadata badges."
         },
         {
           "name": "detail-background",
@@ -44,8 +44,8 @@
         },
         {
           "name": "partition-hues",
-          "source": "[Color.blue, .teal, .orange, .purple, .pink, .indigo]",
-          "purpose": "Cyclic physical-partition distinction; not filesystem or status meaning."
+          "source": "PartitionCategory: system .orange; recovery .green; metadata .gray; data .blue; unknown NSColor.secondaryLabelColor",
+          "purpose": "Consistent partition categories from backend role/content; names and legend accompany colour."
         }
       ],
       "typographyMappings": [
@@ -181,11 +181,14 @@
       ],
       "componentStates": {
         "partitionMap": {
-          "selectedOpacity": 1,
-          "unselectedOpacity": 0.75,
           "source": "Views/PartitionMapView.swift",
+          "fillOpacity": 0.2,
           "selectedBorderWidth": 2,
-          "selectedBorderForeground": ".primary"
+          "selectedBorderForeground": "Color.accentColor",
+          "minimumSegmentWidth": 48,
+          "segmentSpacing": 4,
+          "segmentHeight": 64,
+          "denseLayout": "Horizontal scrolling; synchronized text list; unknown regions are not plotted."
         },
         "nativeControls": "Hover, focus, selection and disabled appearance belong to macOS; no custom transition or shadow is defined.",
         "progress": "SwiftUI ProgressView; small control size for ongoing-operation and sidebar refresh indicators.",
@@ -206,10 +209,11 @@
       },
       "previewPolicy": "HTML/CSS entries are schematic documentation previews using browser system colors and typography. They do not reproduce AppKit colors, SwiftUI text metrics, SF Symbols, interaction behavior, or discovered device data. Native source mappings are authoritative.",
       "evidenceScope": {
-        "basis": "Final SwiftUI source, successful Swift build and 11 passing tests; native layout behavior was observed before the final compact-caption and selected-foreground changes. The independent source review found no material defect; the formal visual finish review awaits recapture because native automation failed globally.",
+        "basis": "Historical native observations below predate Milestone 5. Current evidence is Windows-host portable Swift and Rust testing, Windows builds and asset integrity checks; native macOS build and runtime remain unverified.",
         "automated": [
-          "Swift build passed.",
-          "All 11 Swift tests passed."
+          "Historical pre-Milestone-5 Swift build passed.",
+          "Historical pre-Milestone-5 eleven Swift tests passed.",
+          "Milestone 5: 12 portable Swift tests, 55 Rust tests, 49 C# tests and Windows Debug/Release builds passed."
         ],
         "observed": [
           "Real discovered disk hierarchy, native disclosure and row selection.",
@@ -225,9 +229,16 @@
           "Dark-appearance runtime",
           "Enlarged-text runtime",
           "VoiceOver runtime",
-          "Physical USB mount/unmount/eject operations"
+          "Physical USB mount/unmount/eject operations",
+          "Milestone 5 native Xcode build and test execution",
+          "Milestone 5 volume rename on expendable external media",
+          "Milestone 5 app icon rendering on macOS"
         ],
-        "noClaim": "This documentation does not certify the full application surface."
+        "noClaim": "This documentation does not certify the full application surface.",
+        "milestone5": {
+          "basis": "Windows-host portable Swift tests and Rust fixtures; native SDK build and UI runtime remain unverified.",
+          "reference": "docs/milestone-5-macos-refinement.md"
+        }
       },
       "sources": [
         "macos/Diskvio/Diskvio/ContentView.swift",
@@ -240,7 +251,10 @@
         "macos/Diskvio/Diskvio/Views/DeviceDetailView.swift",
         "macos/Diskvio/Diskvio/Views/DeviceInspector.swift",
         "macos/Diskvio/Diskvio/Views/PartitionMapView.swift",
-        "macos/Diskvio/Diskvio/DiskvioApp.swift"
+        "macos/Diskvio/Diskvio/DiskvioApp.swift",
+        "macos/Diskvio/Diskvio/Models/PartitionPresentation.swift",
+        "macos/Diskvio/Diskvio/Views/DeviceManagementView.swift",
+        "macos/Diskvio/Diskvio/Views/VolumeRenameView.swift"
       ],
       "sourceRelationships": [
         {
@@ -337,10 +351,10 @@
       "kind": "custom",
       "refersTo": "partition-map",
       "description": "Physical-byte-scaled partition track with a linked adaptive text legend; empty schematic preview avoids fabricated partitions.",
-      "html": "<div class=\"ds-partition-map\"><strong>Partition Map</strong><div class=\"ds-partition-track\" aria-hidden=\"true\"></div><small class=\"ds-partition-note\">Segment widths show physical partition capacity.</small></div>",
-      "css": ".ds-partition-map { color-scheme: light dark; display: flex; flex-direction: column; gap: 12px; font-family: system-ui; color: CanvasText; } .ds-partition-track { height: 38px; border-radius: 5px; background: ButtonFace; overflow: hidden; } .ds-partition-note { color: GrayText; }",
-      "nativeSource": "PartitionMapLayout(disk: disk) supplies segments to GeometryReader. Track buttons use segment.lengthFraction and segment.startFraction, select(segment.id), system hues by segment.index, opacity 1 or 0.75, and a 2-point primary stroke on selection. LazyVGrid with adaptive minimum 240 supplies a matching button for every segment. The 38-point track clips to RoundedRectangle(cornerRadius: 5).",
-      "nativeGeometry": "PartitionMapLayout accepts a positive physical-disk capacity. Segment start uses the reported offset or prior partition end; missing length preserves that start, and overflow saturates the next end. Start and length fractions clamp to physical-disk bounds. The legend uses 8-point circles and the same system hue as its segment, names up to two lines, identifiers and tabular capacities. It supplies a full-size text target even for tiny physical segments.",
+      "html": "<div class=\"ds-partition-map\"><strong>Partition Map</strong><div class=\"ds-partition-track\" aria-hidden=\"true\"></div><small class=\"ds-partition-note\">Widths compare capacity; small partitions have a minimum visual size.</small></div>",
+      "css": ".ds-partition-map { color-scheme: light dark; display: flex; flex-direction: column; gap: 12px; font-family: system-ui; color: CanvasText; } .ds-partition-track { height: 64px; border-radius: 5px; background: ButtonFace; overflow: hidden; } .ds-partition-note { color: GrayText; }",
+      "nativeSource": "PartitionMapLayout.visualWidths provides capacity-weighted widths with 48-point minimums and 4-point spacing. 64-point native buttons use category tint, accent selection and context menus; Grid supplies synchronized names, formats and capacities.",
+      "nativeGeometry": "Schematic physical capacity comparison; no rendered inferred gaps. APFS volumes share their store and selecting a volume highlights its store.",
       "source": "Models/PartitionMapLayout.swift / Views/PartitionMapView.swift"
     }
   ],
@@ -372,7 +386,7 @@
       },
       {
         "name": "The Physical Scale Rule",
-        "body": "Map geometry follows real physical partition bytes and offsets; container and volume sharing remain explicit in text.",
+        "body": "Map geometry compares reported physical capacity with minimum visible widths; exact capacities and APFS sharing remain explicit in text.",
         "section": "components"
       }
     ],
@@ -385,7 +399,7 @@
     ],
     "donts": [
       "Don't replace appearance-aware native colors or semantic text styles with guessed fixed values.",
-      "Don't assign status or filesystem meaning to the partition color sequence.",
+      "Don't use colour alone to communicate category, selection or operation availability.",
       "Don't render shared APFS volume capacity as an independent physical partition.",
       "Don't generalize the map radius into a custom style for native controls.",
       "Don't present source-level layout or accessibility affordances as runtime validation."

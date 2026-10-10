@@ -175,6 +175,58 @@ struct OperationContractTests {
 }
 
 struct DiskActionIntegrationTests {
+    @Test @MainActor func mountAlsoRequiresConfirmationAndDriveLettersStayBlocked() async throws {
+        let fixture = operationFixture.replacingOccurrences(of: #""actions":["unmount"]"#, with: #""actions":["mount"]"#)
+        let inventory = try DiskService.decodeInventory(Data(fixture.utf8))
+        let store = DiskStore(loadInventory: { inventory })
+        await store.refresh()
+        let volume = try #require(store.nodes.flatMap(\.flattened).last)
+        store.request(.mount, from: volume)
+        #expect(store.pendingOperation?.action == .mount)
+        #expect(store.operationInProgress == nil)
+        #expect(!store.canRequest(.setDriveLetter, from: volume))
+    }
+
+    @Test @MainActor func renameWaitsForConfirmationAndForwardsMountSnapshot() async throws {
+        let fixture = operationFixture.replacingOccurrences(of: #""actions":["unmount"]"#,
+            with: #""actions":["unmount","rename_volume"],"mount_point":"/Volumes/Test Data","mount_points":["/Volumes/Test Data"]"#)
+        let inventory = try DiskService.decodeInventory(Data(fixture.utf8))
+        let captured = Mutex<OperationRequest?>(nil)
+        let store = DiskStore(loadInventory: { inventory }, runOperation: { request in
+            captured.withLock { $0 = request }
+            return OperationOutcome(action: request.action, identifier: request.identifier, message: "Renamed")
+        }, loadCapabilities: { identifier in
+            OperationCapabilities(identifier: identifier, deviceKind: "apfs_volume", identityToken: "volume-token", actions: [.renameVolume])
+        }, validateOperation: { request in
+            OperationValidation(valid: true, action: request.action, identifier: request.identifier, expectedIdentity: request.expectedIdentity)
+        })
+        await store.refresh()
+        let volume = try #require(store.nodes.flatMap(\.flattened).last)
+        store.request(.renameVolume, from: volume)
+        #expect(store.renameTarget?.id == volume.id)
+        #expect(captured.withLock { $0 } == nil)
+        await store.perform(.renameVolume, on: volume, volumeLabel: "Archive")
+        #expect(captured.withLock { $0?.volumeLabel } == "Archive")
+        #expect(captured.withLock { $0?.expectedMountPoints } == ["/Volumes/Test Data"])
+        #expect(store.selection != nil)
+        #expect(store.operationMessage == "Renamed")
+    }
+
+    @Test @MainActor func removalDismissesPendingRenameAndConfirmation() async throws {
+        let fixture = operationFixture.replacingOccurrences(of: #""actions":["unmount"]"#, with: #""actions":["unmount","rename_volume"]"#)
+        let inventory = try DiskService.decodeInventory(Data(fixture.utf8))
+        let store = DiskStore(loadInventory: { inventory })
+        await store.refresh()
+        let volume = try #require(store.nodes.flatMap(\.flattened).last)
+        store.request(.renameVolume, from: volume)
+        store.request(.unmount, from: volume)
+        store.receive(DiskEvent(kind: .disappeared, identifier: "disk2", wholeIdentifier: "disk2", physicalCandidate: true))
+        #expect(store.renameTarget == nil)
+        #expect(store.pendingOperation == nil)
+        #expect(store.selection == nil)
+        store.stopMonitoring()
+    }
+
     @Test @MainActor func availabilityUsesBackendReportedActionsAndUSBSelection() async throws {
         let inventory = try DiskService.decodeInventory(Data(operationFixture.utf8))
         let store = DiskStore(loadInventory: { inventory })

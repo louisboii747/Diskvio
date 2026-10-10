@@ -58,6 +58,9 @@ private struct PartitionMenuCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Partition") {
+            Button("Rename Volume…", systemImage: DiskAction.renameVolume.symbol) { request(.renameVolume) }
+                .disabled(!canRequest(.renameVolume))
+            Divider()
             Button("Mount Volume", systemImage: DiskAction.mount.symbol) {
                 request(.mount)
             }

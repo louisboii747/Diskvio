@@ -1,6 +1,6 @@
 #[cfg(any(target_os = "macos", target_os = "windows", test))]
 mod command;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 mod macos;
 #[cfg(any(target_os = "windows", test))]
 mod windows;

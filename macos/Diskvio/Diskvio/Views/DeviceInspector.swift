@@ -8,16 +8,39 @@ struct DeviceInspector: View {
             Section("Device") {
                 PropertyRow(title: "Type", value: node.kind.rawValue)
                 PropertyRow(title: "Identifier", value: node.device.identifier)
-                PropertyRow(title: "Name", value: node.device.name)
+                PropertyRow(title: "Name", value: node.displayName)
+                PropertyRow(title: "Volume label", value: node.device.volumeLabel)
                 PropertyRow(title: "Media name", value: node.device.mediaName ?? node.disk.device.mediaName)
                 PropertyRow(title: node.kind == .volume ? node.capacityLabel : "Total capacity", value: Capacity.string(node.device.sizeBytes))
                 PropertyRow(title: "Filesystem", value: node.device.filesystem?.name)
-                if node.kind == .partition { PropertyRow(title: "Partition type", value: node.contentType) }
+                if let partition = node.partition {
+                    PropertyRow(title: "Partition number", value: partition.number.map(String.init))
+                    PropertyRow(title: "Partition role", value: PartitionPresentation(partition: partition).typeName)
+                    PropertyRow(title: "Partition type", value: node.contentType)
+                    PropertyRow(title: "Offset", value: partition.offsetBytes.map { "\($0) bytes" })
+                }
+                PropertyRow(title: "Health / SMART", value: node.device.healthStatus)
+                if let status = node.device.operationalStatus, !status.isEmpty {
+                    PropertyRow(title: "Status", value: status.joined(separator: ", "))
+                }
                 PropertyRow(title: "Partition scheme", value: node.disk.schemeName)
                 PropertyRow(title: "Connection", value: node.disk.connectionType)
                 PropertyRow(title: "Location", value: node.disk.internal.map { $0 ? "Internal" : "External" })
                 PropertyRow(title: "Removable media", value: yesNo(node.disk.removable))
                 PropertyRow(title: "Ejectable", value: yesNo(node.disk.ejectable))
+            }
+            Section("Protection") {
+                PropertyRow(title: "System", value: yesNo(node.device.safety?.system))
+                PropertyRow(title: "Boot", value: yesNo(node.device.safety?.boot))
+                PropertyRow(title: "Recovery", value: yesNo(node.device.safety?.recovery))
+                PropertyRow(title: "Read-only", value: yesNo(node.device.safety?.readOnly))
+                PropertyRow(title: "Hidden", value: yesNo(node.device.safety?.hidden))
+                PropertyRow(title: "Offline", value: yesNo(node.device.safety?.offline))
+                PropertyRow(title: "APFS roles", value: node.volume?.roles.joined(separator: ", "))
+            }
+            Section("Advanced Identity") {
+                PropertyRow(title: "Backend name", value: node.device.name)
+                PropertyRow(title: "Stable device identifier", value: node.device.stableID ?? node.disk.device.stableID)
             }
             Section("Volume & Storage") {
                 PropertyRow(title: "Mount point", value: node.device.mountPoint ?? (node.device.filesystem == nil ? "Not applicable" : "Not mounted directly"))

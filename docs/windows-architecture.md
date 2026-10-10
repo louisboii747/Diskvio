@@ -1,6 +1,6 @@
 # Windows architecture
 
-The native Windows frontend extends the existing .NET 10 / WinUI 3 application and x64 Visual Studio 2026 solution. [Milestone 4 Windows](milestone-4-windows.md) describes the current implementation, validation and limitations.
+The native Windows frontend extends the existing .NET 10 / WinUI 3 application and x64 Visual Studio 2026 solution. [Milestone 5 Windows refinement](milestone-5-windows-refinement.md) describes the current implementation, contracts, validation and limitations; [Milestone 4](milestone-4-windows.md) records the original Windows foundation.
 
 ## Application structure
 
@@ -8,7 +8,8 @@ The native Windows frontend extends the existing .NET 10 / WinUI 3 application a
 - `DevicesPage`: Fluent controls, disk sidebar, explorer, partition map, inspector, confirmations and a 15-second UI-thread timer for asynchronous read-only refresh.
 - `StorageWorkspaceViewModel`: selection, inventory, capabilities, busy state and guarded operations. Existing `DevicesViewModel` remains for legacy discovery bindings and tests.
 - `StorageNode`: presentation over existing typed storage contracts; does not invent device data.
-- `PartitionLayout`: portable, conservative physical geometry; `PartitionMap` renders native focusable buttons with accessible full-size legend alternatives.
+- `PartitionPresentation`: friendly naming from labels and known backend partition types.
+- `PartitionLayout`: portable, conservative physical geometry and minimum visual widths; `PartitionMap` renders theme-aware native focusable buttons, with the synchronized table as an alternative inspection target.
 - `DiskService` / `NativeMethods`: existing asynchronous JSON FFI and Rust-owned SafeHandle results.
 - `Diskvio.Rust.targets`: existing locked Cargo build, architecture checks and native content in build/publish/MSIX output.
 
@@ -24,8 +25,8 @@ The x64 solution builds `x86_64-pc-windows-msvc` Rust code into `target/windows`
 
 Inventory and native calls run on worker threads. View-model state resumes on the UI synchronization context. Busy state covers discovery and the entire confirmation/validation/execution sequence; refresh and selection controls are disabled while busy. Selection-version checks discard stale capability responses. Failed inventory clears stale devices. Successful operations refresh automatically; failed operations also attempt refresh to handle disconnects or changed state.
 
-Only a selected external USB volume with a backend identity and matching advertised and freshly queried capability can enable Mount/Unmount. The confirmation defaults to Cancel. After confirmation, capabilities and identity are checked again, validation is requested, and Rust execution revalidates independently. Eject remains disabled. No destructive operations or privilege bypass exists.
+Only an external USB basic-data volume with a backend identity and matching advertised and freshly queried capability can enable mount/unmount, label rename or drive-letter assignment/change. A single-volume partition can resolve to that volume; ambiguous partitions require explicit volume selection. Paging-file volumes and missing safety metadata are excluded. Confirmation defaults to Cancel. After confirmation, capabilities and identity are checked again, validation is requested, and Rust execution revalidates independently. New operations also require matching confirmed access paths. Drive-letter changes require an exclusive native volume lock and attempt rollback if reassignment fails. Create/delete, formatting, physical eject and privilege bypass remain unavailable.
 
 ## Validation boundaries
 
-Tests link the actual portable models, services and view models without loading WinUI. Native integration tests perform discovery and capability queries only. No automated test executes mount/unmount. macOS builds and Apple-specific tests require a Mac. See the milestone report for exact successful commands and outstanding manual checks.
+Tests link the actual portable models, services and view models without loading WinUI. Native integration tests perform discovery and capability queries only. Mutation tests use fake APIs and command runners; no real storage mutation runs automatically. Existing macOS fixture tests also run on Windows using a test-only plist dependency. Native macOS builds and runtime checks require a Mac. See the milestone report for exact successful commands and outstanding manual checks.

@@ -51,3 +51,7 @@ The subsequent UI refinement passed the Xcode build and eleven Swift unit tests,
 ## Milestone 2 validation
 
 On 9 October 2026, the Rust workspace passed formatting, check, Clippy with warnings denied and 41 fixture-based tests. Windows x64 source and test targets also passed cross-check/Clippy. Xcode compiled and linked the macOS app and passed 14 Swift tests, including capability/validation decoding, unchanged legacy request encoding and structured backend errors. The Windows C# fixture tests run portably without a native DLL; the Windows kernel32/Storage-module paths still require native verification. No mount, unmount or eject operation was run against an actual disk. See [Milestone 2 backend](milestone-2-backend.md) for the API and remaining native work.
+
+## Milestone 5 validation
+
+See [macOS Milestone 5](milestone-5-macos-refinement.md) for the current Windows-host Rust/portable Swift/C# results, added native DiskStore tests, supplied icon exports and external-USB manual checks. The historical Xcode results above do not certify the Milestone 5 changes; their native build, UI rendering and hardware renaming still require a Mac. Portable model tests run with `swift test --package-path macos`.

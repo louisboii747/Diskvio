@@ -17,6 +17,9 @@ struct ContentView: View {
         .task { await store.start() }
         .onDisappear { store.stopMonitoring() }
         .focusedSceneObject(store)
+        .sheet(item: $store.renameTarget) { node in
+            VolumeRenameView(node: node, store: store)
+        }
         .confirmationDialog(
             store.pendingOperation?.title ?? "Confirm Disk Operation",
             isPresented: Binding(

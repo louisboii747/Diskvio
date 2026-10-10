@@ -13,11 +13,20 @@ struct DeviceDetailView: View {
                         .foregroundStyle(.secondary)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(node.device.name).font(.title2).fontWeight(.semibold).textSelection(.enabled)
+                        Text(node.displayName).font(.title2).fontWeight(.semibold).textSelection(.enabled)
                         Text("\(node.kind.rawValue) · \(node.device.identifier)")
                             .foregroundStyle(.secondary).textSelection(.enabled)
                     }
                     Spacer(minLength: 0)
+                }
+                if !node.badges.isEmpty {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), alignment: .leading)], alignment: .leading, spacing: 6) {
+                        ForEach(node.badges, id: \.self) { badge in
+                            Text(badge).font(.caption).foregroundStyle(.secondary)
+                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                .background(.quaternary, in: Capsule())
+                        }
+                    }
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), alignment: .leading)], alignment: .leading, spacing: 12) {
                     CapacitySummary(label: node.capacityLabel, bytes: node.device.sizeBytes)
@@ -52,8 +61,10 @@ struct DeviceDetailView: View {
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 Divider()
-                if node.kind == .disk || node.kind == .partition {
-                    PartitionMapView(disk: node.disk, selectedIdentifier: node.device.identifier) { identifier in
+                DeviceManagementView(node: node, store: store)
+                Divider()
+                if !node.disk.partitions.isEmpty {
+                    PartitionMapView(disk: node.disk, selectedIdentifier: node.physicalPartitionIdentifier ?? node.device.identifier, store: store) { identifier in
                         store.selection = store.nodes.flatMap(\.flattened).first {
                             $0.disk.device.identifier == node.disk.device.identifier && $0.device.identifier == identifier
                         }?.id
@@ -67,7 +78,7 @@ struct DeviceDetailView: View {
                                 HStack(spacing: 10) {
                                     Image(systemName: child.kind.symbol).foregroundStyle(.secondary).frame(width: 22)
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(child.device.name).fontWeight(.medium).lineLimit(2).multilineTextAlignment(.leading)
+                                        Text(child.displayName).fontWeight(.medium).lineLimit(2).multilineTextAlignment(.leading)
                                         Text(child.device.filesystem?.name ?? child.kind.rawValue).font(.caption).foregroundStyle(.secondary)
                                     }
                                     Spacer(minLength: 8)

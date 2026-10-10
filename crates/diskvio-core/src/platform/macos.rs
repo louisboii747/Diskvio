@@ -5,11 +5,13 @@ use crate::{
 };
 use crate::{OperationError, OperationErrorKind};
 use serde::{Deserialize, de::DeserializeOwned};
+#[cfg(target_os = "macos")]
 use std::error::Error;
 
 #[derive(Default, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct DiskList {
+    #[cfg(target_os = "macos")]
     #[serde(default)]
     whole_disks: Vec<String>,
     #[serde(default, rename = "AllDisksAndPartitions")]
@@ -79,6 +81,10 @@ struct DiskInfo {
     filesystem_type: Option<String>,
     filesystem_name: Option<String>,
     filesystem_user_visible_name: Option<String>,
+    read_only_media: Option<bool>,
+    read_only_volume: Option<bool>,
+    #[serde(rename = "SMARTStatus")]
+    smart_status: Option<String>,
     volume_free_space: Option<u64>,
     volume_used_space: Option<u64>,
     partition_map_partition_offset: Option<u64>,
@@ -124,6 +130,7 @@ struct VolumeEntry {
     mount_point: Option<String>,
 }
 
+#[cfg(target_os = "macos")]
 pub fn list_disks() -> Result<Vec<Disk>, Box<dyn Error>> {
     let list: DiskList = read_plist(&SystemCommandRunner, &["list", "-plist", "physical"])?;
     let mut disks = Vec::new();
@@ -144,6 +151,7 @@ pub fn list_disks() -> Result<Vec<Disk>, Box<dyn Error>> {
     Ok(disks)
 }
 
+#[cfg(target_os = "macos")]
 pub fn disk_inventory() -> Result<DiskInventory, Box<dyn Error>> {
     disk_inventory_with(&SystemCommandRunner).map_err(Into::into)
 }
@@ -163,15 +171,41 @@ fn disk_inventory_with(runner: &impl CommandRunner) -> Result<DiskInventory, Ope
         let mut partitions = Vec::new();
         // Only entries beneath a physical disk are partitions. Synthesized APFS
         // volumes are mapped separately from `apfs list`, never from `list` slices.
-        for partition in &entry.partitions {
+        for (index, partition) in entry.partitions.iter().enumerate() {
             let info = optional_info(
                 runner,
                 &partition.device_identifier,
                 &mut inventory.warnings,
             );
+            let content = info.content.clone().or_else(|| partition.content.clone());
+            let role = match content.as_deref() {
+                Some("EFI") => crate::PartitionRole::EfiSystem,
+                Some("Apple_Boot" | "Apple_Recovery") => crate::PartitionRole::Recovery,
+                Some("Apple_APFS" | "Apple_HFS" | "Microsoft Basic Data") => {
+                    crate::PartitionRole::BasicData
+                }
+                _ => crate::PartitionRole::Unknown,
+            };
+            let number = partition
+                .device_identifier
+                .rsplit_once('s')
+                .and_then(|(_, number)| number.parse().ok());
+            let mut device = map_device(&partition.device_identifier, &info, Some(partition));
+            device.name = device
+                .volume_label
+                .clone()
+                .unwrap_or_else(|| match content.as_deref() {
+                    Some("Apple_APFS") => "APFS Physical Store".into(),
+                    Some("Apple_HFS") => "Apple HFS Partition".into(),
+                    _ => role.friendly_name().map(str::to_owned).unwrap_or_else(|| {
+                        format!("Partition {}", number.unwrap_or(index as u32 + 1))
+                    }),
+                });
             partitions.push(Partition {
-                device: map_device(&partition.device_identifier, &info, Some(partition)),
-                content_type: info.content.clone().or_else(|| partition.content.clone()),
+                device,
+                role: Some(role),
+                number,
+                content_type: content,
                 offset_bytes: info.partition_map_partition_offset,
                 apfs_container_id: info.apfs_container_reference,
                 ..Default::default()
@@ -312,6 +346,9 @@ fn map_volume(
     device.name = nonempty(volume.name.as_deref())
         .unwrap_or(&device.name)
         .to_owned();
+    device.volume_label = nonempty(volume.name.as_deref())
+        .map(str::to_owned)
+        .or(device.volume_label);
     device.filesystem = Some(
         info.filesystem_type
             .as_deref()
@@ -337,11 +374,30 @@ fn map_volume(
         (None, _, free) => free,
     };
     device.volume_uuid = volume.uuid.or(device.volume_uuid);
+    device.safety.system = Some(
+        volume
+            .roles
+            .iter()
+            .any(|role| role.eq_ignore_ascii_case("System")),
+    );
+    device.safety.boot = Some(
+        volume
+            .roles
+            .iter()
+            .any(|role| role.eq_ignore_ascii_case("Preboot")),
+    );
+    device.safety.recovery = Some(
+        volume
+            .roles
+            .iter()
+            .any(|role| role.eq_ignore_ascii_case("Recovery")),
+    );
     // DiskUUID on APFS volumes is a volume UUID, not a partition UUID.
     device.partition_uuid = None;
     device.mount_point = device
         .mount_point
         .or_else(|| nonempty(volume.mount_point.as_deref()).map(str::to_owned));
+    device.mount_points = device.mount_point.iter().cloned().collect();
     ApfsVolume {
         device,
         mounted_snapshots: vec![],
@@ -377,6 +433,9 @@ fn map_device(identifier: &str, info: &DiskInfo, entry: Option<&DiskEntry>) -> D
     });
     Device {
         identifier: identifier.to_owned(),
+        volume_label: nonempty(info.volume_name.as_deref())
+            .or_else(|| entry.and_then(|e| nonempty(e.volume_name.as_deref())))
+            .map(str::to_owned),
         name: nonempty(info.volume_name.as_deref())
             .or_else(|| entry.and_then(|e| nonempty(e.volume_name.as_deref())))
             .or_else(|| nonempty(info.media_name.as_deref()))
@@ -389,6 +448,12 @@ fn map_device(identifier: &str, info: &DiskInfo, entry: Option<&DiskEntry>) -> D
         mount_point: nonempty(info.mount_point.as_deref())
             .or_else(|| entry.and_then(|e| nonempty(e.mount_point.as_deref())))
             .map(str::to_owned),
+        mount_points: nonempty(info.mount_point.as_deref())
+            .or_else(|| entry.and_then(|e| nonempty(e.mount_point.as_deref())))
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        health_status: info.smart_status.clone(),
         volume_uuid: info.volume_uuid.clone(),
         partition_uuid: info
             .disk_uuid
@@ -397,6 +462,16 @@ fn map_device(identifier: &str, info: &DiskInfo, entry: Option<&DiskEntry>) -> D
         used_bytes: used,
         available_bytes: available,
         safety: crate::DeviceSafety {
+            system: info
+                .content
+                .as_deref()
+                .or_else(|| entry.and_then(|e| e.content.as_deref()))
+                .map(|content| content == "EFI"),
+            read_only: match (info.read_only_media, info.read_only_volume) {
+                (Some(true), _) | (_, Some(true)) => Some(true),
+                (Some(false), Some(false)) => Some(false),
+                _ => None,
+            },
             recovery: info
                 .content
                 .as_deref()
@@ -591,8 +666,38 @@ impl<R: CommandRunner> crate::DiskBackend for MacOsBackend<R> {
             crate::DiskOperation::Mount => "mount",
             crate::DiskOperation::Unmount => "unmount",
             crate::DiskOperation::Eject => "eject",
+            crate::DiskOperation::RenameVolume => "renameVolume",
+            crate::DiskOperation::SetDriveLetter => {
+                return Err(OperationError::new(
+                    OperationErrorKind::UnsupportedOperation,
+                    "Drive letters are supported only on Windows",
+                ));
+            }
         };
-        run_diskutil(&self.runner, &[verb, target])?;
+        if request.action == crate::DiskOperation::RenameVolume {
+            // Validate writability again against the final UUID-resolved target.
+            if current.read_only_media != Some(false) || current.read_only_volume != Some(false) {
+                return Err(OperationError::new(
+                    OperationErrorKind::InvalidState,
+                    "The volume is read-only or its writability could not be verified",
+                ));
+            }
+            run_diskutil(
+                &self.runner,
+                &[
+                    verb,
+                    target,
+                    request.volume_label.as_deref().ok_or_else(|| {
+                        OperationError::new(
+                            OperationErrorKind::InvalidRequest,
+                            "A volume label is required",
+                        )
+                    })?,
+                ],
+            )?;
+        } else {
+            run_diskutil(&self.runner, &[verb, target])?;
+        }
         Ok(crate::OperationOutcome {
             action: request.action,
             identifier: device_now.identifier,
@@ -662,6 +767,9 @@ mod tests {
     fn mount_request() -> OperationRequest {
         let inventory = disk_inventory_with(&FixtureRunner::new(inventory_steps())).unwrap();
         OperationRequest {
+            expected_mount_points: None,
+            volume_label: None,
+            drive_letter: None,
             action: DiskOperation::Mount,
             identifier: "disk2s1".into(),
             expected_identity: inventory.disks[0].partitions[0]
@@ -670,6 +778,189 @@ mod tests {
                 .clone()
                 .unwrap(),
         }
+    }
+
+    fn rename_state() -> (String, Vec<Step>, OperationRequest) {
+        let xml = String::from_utf8(VOLUME_INFO.to_vec()).unwrap().replace("</dict>",
+            "<key>ReadOnlyMedia</key><false/><key>ReadOnlyVolume</key><false/><key>MountPoint</key><string>/Volumes/External</string></dict>");
+        let mut steps = inventory_steps();
+        steps[2] = step(
+            "/usr/sbin/diskutil",
+            &["info", "-plist", "disk2s1"],
+            xml.as_bytes(),
+        );
+        let inventory = disk_inventory_with(&FixtureRunner::new(steps_for_xml(&xml))).unwrap();
+        let device = &inventory.disks[0].partitions[0].device;
+        let request = OperationRequest {
+            action: DiskOperation::RenameVolume,
+            identifier: device.identifier.clone(),
+            expected_identity: device.identity_token.clone().unwrap(),
+            volume_label: Some("Archive".into()),
+            drive_letter: None,
+            expected_mount_points: Some(device.mount_points.clone()),
+        };
+        (xml, steps, request)
+    }
+
+    fn steps_for_xml(xml: &str) -> Vec<Step> {
+        let mut steps = inventory_steps();
+        steps[2] = step(
+            "/usr/sbin/diskutil",
+            &["info", "-plist", "disk2s1"],
+            xml.as_bytes(),
+        );
+        steps
+    }
+
+    #[test]
+    fn rename_is_uuid_targeted_revalidated_and_passed_as_one_argument() {
+        let (xml, mut steps, mut request) = rename_state();
+        request.volume_label = Some("Archive USB".into());
+        steps.extend(steps_for_xml(&xml));
+        steps.push(step(
+            "/usr/sbin/diskutil",
+            &["info", "-plist", UUID],
+            xml.as_bytes(),
+        ));
+        steps.push(step(
+            "/usr/sbin/ioreg",
+            &["-a", "-r", "-c", "IOMedia"],
+            REGISTRY,
+        ));
+        steps.push(step(
+            "/usr/sbin/diskutil",
+            &["renameVolume", UUID, "Archive USB"],
+            b"Renamed",
+        ));
+        let backend = MacOsBackend {
+            runner: FixtureRunner::new(steps),
+        };
+        assert_eq!(
+            backend.perform(&request).unwrap().action,
+            DiskOperation::RenameVolume
+        );
+        backend.runner.assert_finished();
+    }
+
+    #[test]
+    fn rename_requires_explicit_writability_and_a_current_mount_snapshot() {
+        let (xml, _, request) = rename_state();
+        for altered in [
+            xml.replace("<key>ReadOnlyVolume</key><false/>", ""),
+            xml.replace(
+                "<key>ReadOnlyVolume</key><false/>",
+                "<key>ReadOnlyVolume</key><true/>",
+            ),
+            xml.replace(
+                "<key>MountPoint</key><string>/Volumes/External</string>",
+                "",
+            ),
+        ] {
+            let inventory =
+                disk_inventory_with(&FixtureRunner::new(steps_for_xml(&altered))).unwrap();
+            assert!(
+                !inventory.disks[0].partitions[0]
+                    .device
+                    .actions
+                    .contains(&DiskOperation::RenameVolume)
+            );
+            assert!(crate::operations::validate_request(&inventory, &request).is_err());
+        }
+        let inventory = disk_inventory_with(&FixtureRunner::new(steps_for_xml(&xml))).unwrap();
+        let mut changed = request.clone();
+        changed.expected_mount_points = Some(vec!["/Volumes/Other".into()]);
+        assert_eq!(
+            crate::operations::validate_request(&inventory, &changed)
+                .unwrap_err()
+                .code,
+            OperationErrorKind::IdentityChanged
+        );
+    }
+
+    #[test]
+    fn final_readonly_change_blocks_rename_without_running_a_mutation() {
+        let (xml, mut steps, request) = rename_state();
+        steps.extend(steps_for_xml(&xml));
+        let readonly = xml.replace(
+            "<key>ReadOnlyVolume</key><false/>",
+            "<key>ReadOnlyVolume</key><true/>",
+        );
+        steps.push(step(
+            "/usr/sbin/diskutil",
+            &["info", "-plist", UUID],
+            readonly.as_bytes(),
+        ));
+        steps.push(step(
+            "/usr/sbin/ioreg",
+            &["-a", "-r", "-c", "IOMedia"],
+            REGISTRY,
+        ));
+        let backend = MacOsBackend {
+            runner: FixtureRunner::new(steps),
+        };
+        assert_eq!(
+            backend.perform(&request).unwrap_err().code,
+            OperationErrorKind::InvalidState
+        );
+        backend.runner.assert_finished();
+    }
+
+    #[test]
+    fn macos_partition_names_roles_and_safety_are_structured() {
+        let mut steps = inventory_steps();
+        let efi = String::from_utf8(VOLUME_INFO.to_vec())
+            .unwrap()
+            .replace("\r\n", "\n")
+            .replace(
+                "<key>VolumeName</key>\n\t<string>External</string>",
+                "<key>Content</key><string>EFI</string>",
+            );
+        steps[2] = step(
+            "/usr/sbin/diskutil",
+            &["info", "-plist", "disk2s1"],
+            efi.as_bytes(),
+        );
+        let inventory = disk_inventory_with(&FixtureRunner::new(steps)).unwrap();
+        let partition = &inventory.disks[0].partitions[0];
+        assert_eq!(partition.device.name, "EFI System Partition");
+        assert_eq!(partition.role, Some(crate::PartitionRole::EfiSystem));
+        assert_eq!(partition.number, Some(1));
+        assert_eq!(partition.device.safety.system, Some(true));
+        assert!(partition.device.actions.is_empty());
+        assert!(inventory.disks[0].device.actions.is_empty());
+    }
+
+    #[test]
+    fn macos_label_validation_is_filesystem_specific_and_conservative() {
+        let (xml, _, request) = rename_state();
+        let inventory = disk_inventory_with(&FixtureRunner::new(steps_for_xml(&xml))).unwrap();
+        let mut device = inventory.disks[0].partitions[0].device.clone();
+        device.filesystem = Some(Filesystem::new("apfs", "APFS"));
+        for bad in [
+            "",
+            ".Hidden",
+            "-option",
+            "a:b",
+            "a/b",
+            " leading",
+            "trailing ",
+            "line\nfeed",
+        ] {
+            let mut invalid = request.clone();
+            invalid.volume_label = Some(bad.into());
+            assert!(
+                crate::operations::validate_parameters(&device, &invalid).is_err(),
+                "{bad:?}"
+            );
+        }
+        let mut unicode = request.clone();
+        unicode.volume_label = Some("Photos — été".into());
+        assert!(crate::operations::validate_parameters(&device, &unicode).is_ok());
+        unicode.volume_label = Some("a".repeat(64));
+        assert!(crate::operations::validate_parameters(&device, &unicode).is_err());
+        device.filesystem = Some(Filesystem::new("exfat", "ExFAT"));
+        unicode.volume_label = Some("a".repeat(12));
+        assert!(crate::operations::validate_parameters(&device, &unicode).is_err());
     }
 
     #[test]
@@ -704,6 +995,9 @@ mod tests {
                 &inventory.disks[0].partitions[0].device
             };
             let request = OperationRequest {
+                expected_mount_points: None,
+                volume_label: None,
+                drive_letter: None,
                 action,
                 identifier: device.identifier.clone(),
                 expected_identity: device.identity_token.clone().unwrap(),

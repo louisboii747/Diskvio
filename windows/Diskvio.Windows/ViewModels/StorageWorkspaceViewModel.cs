@@ -35,11 +35,17 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
     public bool HasWarnings => _warnings.Length > 0;
     public string Warnings => _warnings;
     public bool HasSelection => SelectedNode is not null;
+    public bool HasDiskSelection => SelectedDisk is not null;
+    public string PartitionEmptyMessage => SelectedDisk?.Disk?.Partitions.Count == 0 ? "No partitions reported for this disk. Creating partitions is not supported yet." : "Select a partition or volume to inspect it. Right-click or press Shift+F10 for actions.";
     public string SelectionName => SelectedNode?.Name ?? "Select a device";
     public string SelectionSummary => SelectedNode?.Summary ?? "Choose a disk or an unattached volume to inspect.";
     public string DeviceCount => $"{Disks.Count} physical disks";
     public PartitionLayout? Layout => SelectedDisk?.Disk is { } disk ? PartitionLayout.Create(disk) : null;
-    public string ActionExplanation => "Only backend-approved external USB volumes support mount and unmount. Physical eject is unsupported on Windows.";
+    public string ActionExplanation => _capabilities?.UnsupportedReason ?? (ActionTarget is null ? "Select a volume to see available management actions." : "Actions require fresh backend authorization. Changes always need confirmation.");
+    public string Limitations => _capabilities is { Limitations.Count: > 0 } caps ? string.Join(Environment.NewLine, caps.Limitations) : "Creating and deleting partitions and physical eject are not supported on Windows in this milestone.";
+    public string SelectionBadges => SelectedNode?.Badges ?? "";
+    public int LabelMaxLength => _capabilities?.LabelMaxLength ?? 11;
+    public StorageNode? ActionTarget => SelectedNode is { Kind: "Partition", Children.Count: 1 } part ? part.Children[0] : SelectedNode;
     public StorageNode? SelectedDisk
     {
         get => _selectedDisk;
@@ -67,16 +73,21 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
     }
     public bool CanMount => CanAct(DiskAction.Mount);
     public bool CanUnmount => CanAct(DiskAction.Unmount);
+    public bool CanRename => CanAct(DiskAction.RenameVolume);
+    public bool CanSetDriveLetter => CanAct(DiskAction.SetDriveLetter);
     private bool CanAct(DiskAction action) => !IsBusy && !HasWarnings &&
-        SelectedNode is { Kind: "Volume", Disk.Internal: false } node &&
+        ActionTarget is { Kind: "Volume", Disk.Internal: false } node &&
         node.Disk.ConnectionType?.Equals("USB", StringComparison.OrdinalIgnoreCase) == true &&
+        node.Device.Safety is { System: not true, Boot: not true, Recovery: not true, PageFile: not true, ReadOnly: not true, Offline: not true, Hidden: not true } &&
+        (action is not (DiskAction.RenameVolume or DiskAction.SetDriveLetter) ||
+            node.Device.Safety is { System: false, Boot: false, Recovery: false, PageFile: false, ReadOnly: false, Offline: false, Hidden: false }) &&
         !string.IsNullOrWhiteSpace(node.Device.IdentityToken) && node.Device.Actions.Contains(action) &&
         _capabilities is { DeviceKind: "volume" } caps && caps.Identifier == node.Device.Identifier &&
         caps.IdentityToken == node.Device.IdentityToken && caps.Actions.Contains(action);
 
     public async Task QueryCapabilitiesAsync()
     {
-        var node = SelectedNode;
+        var node = ActionTarget;
         var version = _selectionVersion;
         if (node is null || IsBusy) return;
         try
@@ -121,11 +132,11 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
         Disks.Clear();
         UnattachedVolumes.Clear();
         foreach (var disk in inventory.Disks.OrderBy(d => d.Number)) Disks.Add(new(disk.Device, "Physical disk", disk));
-        foreach (var volume in inventory.UnattachedVolumes) UnattachedVolumes.Add(new(volume.Device, "Volume"));
+        foreach (var volume in inventory.UnattachedVolumes) UnattachedVolumes.Add(new(volume.Device, "Volume", Volume: volume));
         _warnings = string.Join(Environment.NewLine, inventory.Warnings);
-        SelectedDisk = Disks.FirstOrDefault(d => d.Device.Identifier == diskId && d.Device.StableId == diskStable) ?? Disks.FirstOrDefault();
+        SelectedDisk = Disks.FirstOrDefault(d => diskStable is not null ? d.Device.StableId == diskStable : d.Device.Identifier == diskId) ?? Disks.FirstOrDefault();
         var all = Disks.SelectMany(d => new[] { d }.Concat(d.Children.SelectMany(p => new[] { p }.Concat(p.Children)))).Concat(UnattachedVolumes);
-        var restored = all.FirstOrDefault(n => n.Device.Identifier == nodeId && n.Device.IdentityToken == nodeIdentity &&
+        var restored = all.FirstOrDefault(n => (nodeIdentity is not null ? n.Device.IdentityToken == nodeIdentity : n.Device.Identifier == nodeId) &&
             (n.Disk is null || n.Disk.Device.StableId == diskStable)) ?? SelectedDisk;
         if (restored is { Disk: null }) SelectedDisk = null;
         SelectedNode = restored;
@@ -137,14 +148,19 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
     }
     // Confirmation owns the busy lease, so selection and refresh cannot race the dialog.
     public async Task ExecuteAsync(DiskAction action, Func<StorageNode, DiskAction, Task<bool>> confirm)
+        => await ExecuteWithParametersAsync(action, async (node, a) => await confirm(node, a) ? new OperationInput() : null);
+
+    public async Task ExecuteWithParametersAsync(DiskAction action, Func<StorageNode, DiskAction, Task<OperationInput?>> confirm)
     {
-        if (action == DiskAction.Eject || !CanAct(action) || SelectedNode is not { } node) return;
+        if (action == DiskAction.Eject || !CanAct(action) || ActionTarget is not { } node) return;
         SetBusy(true);
         _error = ""; _result = "";
         try
         {
-            if (!await confirm(node, action)) return;
-            var request = new DiskOperationRequest { Action = action, Identifier = node.Device.Identifier, ExpectedIdentity = node.Device.IdentityToken! };
+            var input = await confirm(node, action);
+            if (input is null) return;
+            var request = new DiskOperationRequest { Action = action, Identifier = node.Device.Identifier, ExpectedIdentity = node.Device.IdentityToken!, VolumeLabel = input.VolumeLabel, DriveLetter = input.DriveLetter,
+                ExpectedMountPoints = action is DiskAction.RenameVolume or DiskAction.SetDriveLetter ? [.. node.Device.MountPoints] : null };
             var caps = await _service.SupportedOperationsAsync(request.Identifier);
             if (caps.Identifier != request.Identifier || caps.IdentityToken != request.ExpectedIdentity ||
                 caps.DeviceKind != "volume" || !caps.Actions.Contains(action))
@@ -173,7 +189,8 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
     {
         foreach (var name in new[] { nameof(IsBusy), nameof(CanInspect), nameof(IsEmpty), nameof(HasError), nameof(ErrorMessage),
             nameof(HasResult), nameof(ResultMessage), nameof(HasWarnings), nameof(Warnings), nameof(HasSelection), nameof(SelectionName),
-            nameof(SelectionSummary), nameof(DeviceCount), nameof(CanMount), nameof(CanUnmount) }) OnPropertyChanged(name);
+            nameof(SelectionSummary), nameof(DeviceCount), nameof(CanMount), nameof(CanUnmount), nameof(CanRename), nameof(CanSetDriveLetter),
+            nameof(ActionExplanation), nameof(Limitations), nameof(SelectionBadges), nameof(LabelMaxLength), nameof(HasDiskSelection), nameof(PartitionEmptyMessage) }) OnPropertyChanged(name);
     }
     private void BuildProperties()
     {
@@ -181,15 +198,21 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
         if (SelectedNode is not { } node) return;
         void Add(string key, object? value) { if (value is not null) Properties.Add(new(key, value.ToString()!)); }
         var d = node.Device;
-        Add("Kind", node.Kind); Add("Identifier", d.Identifier); Add("Capacity", d.SizeBytes is { } size ? $"{Models.Disk.FormatCapacity(size)} ({size:N0} bytes)" : "Not reported");
+        Add("Kind", node.Kind); Add("Capacity", d.SizeBytes is { } size ? $"{Models.Disk.FormatCapacity(size)} ({size:N0} bytes)" : "Not reported");
         Add("Used", d.UsedBytes is { } used ? Models.Disk.FormatCapacity(used) : null);
         Add("Available", d.AvailableBytes is { } free ? Models.Disk.FormatCapacity(free) : null);
-        Add("File system", d.Filesystem?.Name); Add("Drive letter", d.DriveLetter); Add("Mount location", node.Kind == "Volume" ? node.MountLocation : null);
+        Add("File system", node.Filesystem); Add("Volume label", node.Volume?.Label ?? (node.Kind == "Partition" ? node.Partition?.Volumes.FirstOrDefault()?.Label : null));
+        Add("Drive letter / mount", node.Location); Add("Partition number", node.Partition?.Number); Add("Partition type", node.Kind != "Physical disk" ? node.Type : null);
+        Add("Health", string.IsNullOrEmpty(node.Health) ? null : node.Health); Add("Status", string.IsNullOrEmpty(node.Status) ? null : node.Status);
+        Add("Identifier", d.Identifier);
         Add("Stable identifier", d.StableId); Add("Volume UUID", d.VolumeUuid); Add("Partition UUID", d.PartitionUuid);
         Add("Connection", node.Disk?.ConnectionType); Add("Internal", node.Disk?.Internal); Add("Removable", node.Disk?.Removable);
         Add("Partition scheme", node.Disk?.PartitionScheme); Add("Disk UUID", node.Disk?.DiskUuid); Add("MBR signature", node.Disk?.MbrSignature);
         Add("Offset (bytes)", node.Partition?.OffsetBytes); Add("Content type", node.Partition?.ContentType); Add("GPT type", node.Partition?.GptType); Add("MBR type", node.Partition?.MbrType);
-        Add("System", d.Safety.System); Add("Boot", d.Safety.Boot); Add("Recovery", d.Safety.Recovery); Add("Hidden", d.Safety.Hidden); Add("Read only", d.Safety.ReadOnly); Add("Offline", d.Safety.Offline);
-        Add("Supported operations", _capabilities is null ? "Checking / unavailable" : _capabilities.Actions.Count == 0 ? "None" : string.Join(", ", _capabilities.Actions));
+        Add("System", d.Safety.System); Add("Boot", d.Safety.Boot); Add("Recovery", d.Safety.Recovery); Add("Hidden", d.Safety.Hidden); Add("Read only", d.Safety.ReadOnly); Add("Offline", d.Safety.Offline); Add("Paging file", d.Safety.PageFile);
+        Add("Supported operations", _capabilities is null ? "Checking / unavailable" : _capabilities.Actions.Count == 0 ? "None" : string.Join(", ", _capabilities.Actions.Select(a => a switch { DiskAction.RenameVolume => "Rename label", DiskAction.SetDriveLetter => "Change drive letter", _ => a.ToString() })));
+        Add("Action target", ActionTarget?.Kind == "Volume" ? ActionTarget.Name : null);
     }
 }
+
+public sealed record OperationInput(string? VolumeLabel = null, string? DriveLetter = null);

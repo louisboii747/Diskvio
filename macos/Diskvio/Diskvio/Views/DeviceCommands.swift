@@ -27,18 +27,18 @@ struct DeviceActionButtons: View {
     @ObservedObject var store: DiskStore
 
     var body: some View {
-        ForEach(node.device.actions ?? [], id: \.rawValue) { action in
+        ForEach((node.device.actions ?? []).filter { $0 != .setDriveLetter }, id: \.rawValue) { action in
             Button(action.title, systemImage: action.symbol) {
                 store.request(action, from: node)
             }
-            .disabled(store.isBusy)
-            .help("\(action.title) \(node.device.name)")
+            .disabled(!store.canRequest(action, from: node))
+            .help("\(action.title) \(node.displayName)")
         }
         if node.kind != .disk, node.disk.device.actions?.contains(.eject) == true {
             Button("Eject Disk", systemImage: "eject") {
                 store.request(.eject, from: node)
             }
-            .disabled(store.isBusy)
+            .disabled(!store.canRequest(.eject, from: node))
             .help("Eject \(node.disk.device.name) and its volumes")
         }
     }

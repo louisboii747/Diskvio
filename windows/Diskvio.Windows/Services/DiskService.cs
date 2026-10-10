@@ -13,7 +13,7 @@ public sealed class DiskService : IDiskService
     public Task<IReadOnlyList<Disk>> ListDisksAsync() => Task.Run(() => DecodeResponse(ReadNative(NativeMethods.ListDisks)));
     public Task<StorageInventory> InventoryAsync() => Task.Run(() => DecodeInventory(ReadNative(NativeMethods.Inventory)));
     public Task<DiskOperationOutcome> PerformAsync(DiskOperationRequest request) => Task.Run(() => DecodeOperation(ReadOperation(request)));
-    public Task<OperationValidation> ValidateAsync(DiskOperationRequest request) => Task.Run(() => DecodeValidation(ReadOperation(new { mode = "validate", action = request.Action, identifier = request.Identifier, expected_identity = request.ExpectedIdentity })));
+    public Task<OperationValidation> ValidateAsync(DiskOperationRequest request) => Task.Run(() => DecodeValidation(ReadOperation(new { mode = "validate", action = request.Action, identifier = request.Identifier, expected_identity = request.ExpectedIdentity, volume_label = request.VolumeLabel, drive_letter = request.DriveLetter, expected_mount_points = request.ExpectedMountPoints })));
     public Task<OperationCapabilities> SupportedOperationsAsync(string identifier) => Task.Run(() => DecodeCapabilities(ReadOperation(new { mode = "supported_operations", identifier })));
 
     private static string ReadOperation<T>(T request)

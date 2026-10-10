@@ -7,6 +7,100 @@ trait VolumeApi {
     fn lock(&self, volume: &str) -> Result<Self::Lock, OperationError>;
     fn dismount(&self, lock: &Self::Lock) -> Result<(), OperationError>;
     fn remove_path(&self, path: &str) -> Result<(), OperationError>;
+    fn add_path(&self, path: &str, volume: &str) -> Result<(), OperationError>;
+    fn available(&self, letter: u8) -> Result<bool, OperationError>;
+    fn set_label(&self, volume: &str, label: &str) -> Result<(), OperationError>;
+}
+
+fn verified_volume<'a>(
+    api: &impl VolumeApi,
+    device: &'a Device,
+) -> Result<&'a str, OperationError> {
+    let volume = device
+        .stable_id
+        .as_deref()
+        .filter(|p| crate::operations::valid_volume_path(p))
+        .ok_or_else(|| {
+            OperationError::new(
+                OperationErrorKind::IdentityChanged,
+                "A verified volume GUID path is required",
+            )
+        })?;
+    if api.paths(volume)? != device.mount_points {
+        return Err(OperationError::new(
+            OperationErrorKind::IdentityChanged,
+            "Volume access paths changed. Refresh and try again.",
+        ));
+    }
+    for path in &device.mount_points {
+        if !api.volume_at(path)?.eq_ignore_ascii_case(volume) {
+            return Err(OperationError::new(
+                OperationErrorKind::IdentityChanged,
+                "The drive letter now belongs to a different volume",
+            ));
+        }
+    }
+    Ok(volume)
+}
+
+fn rename_with(api: &impl VolumeApi, device: &Device, label: &str) -> Result<(), OperationError> {
+    let volume = verified_volume(api, device)?;
+    api.set_label(volume, label)
+}
+
+fn set_drive_letter_with(
+    api: &impl VolumeApi,
+    device: &Device,
+    letter: &str,
+) -> Result<(), OperationError> {
+    if letter.len() != 1 || !(b'D'..=b'Z').contains(&letter.as_bytes()[0]) {
+        return Err(OperationError::new(
+            OperationErrorKind::InvalidRequest,
+            "Choose a drive letter from D through Z",
+        ));
+    }
+    let volume = verified_volume(api, device)?;
+    if device.mount_points.len() > 1
+        || device
+            .mount_points
+            .iter()
+            .any(|p| !crate::operations::valid_drive_path(p))
+    {
+        return Err(OperationError::new(
+            OperationErrorKind::UnsupportedOperation,
+            "Only single drive-letter mounts are supported",
+        ));
+    }
+    if !api.available(letter.as_bytes()[0])? {
+        return Err(OperationError::new(
+            OperationErrorKind::InvalidState,
+            "The requested drive letter is already in use",
+        ));
+    }
+    let lock = api.lock(volume)?;
+    verified_volume(api, device)?;
+    if !api.available(letter.as_bytes()[0])? {
+        return Err(OperationError::new(
+            OperationErrorKind::InvalidState,
+            "The requested drive letter became unavailable",
+        ));
+    }
+    api.dismount(&lock)?;
+    let old = device.mount_points.first();
+    if let Some(old) = old {
+        api.remove_path(old)?;
+    }
+    let new = format!("{letter}:\\");
+    if let Err(mut error) = api.add_path(&new, volume) {
+        if let Some(old) = old {
+            match api.add_path(old, volume) {
+                Ok(()) => error.message.push_str(" The original drive letter was restored."),
+                Err(restore) => error.message.push_str(&format!(" The original drive letter could not be restored: {}. Refresh to inspect the volume; its GUID identity remains unchanged.", restore.message)),
+            }
+        }
+        return Err(error);
+    }
+    Ok(())
 }
 
 fn unmount_with(api: &impl VolumeApi, device: &Device) -> Result<(), OperationError> {
@@ -91,6 +185,7 @@ mod win32 {
         fn SetVolumeMountPointW(path: *const u16, volume: *const u16) -> i32;
         fn DeleteVolumeMountPointW(path: *const u16) -> i32;
         fn GetLogicalDrives() -> u32;
+        fn SetVolumeLabelW(volume: *const u16, label: *const u16) -> i32;
     }
 
     fn wide(value: &str) -> Vec<u16> {
@@ -151,6 +246,26 @@ mod win32 {
     pub(super) struct NativeApi;
     impl VolumeApi for NativeApi {
         type Lock = LockedVolume;
+
+        fn add_path(&self, path: &str, volume: &str) -> Result<(), OperationError> {
+            if unsafe { SetVolumeMountPointW(wide(path).as_ptr(), wide(volume).as_ptr()) } == 0 {
+                return Err(last_error("Could not assign the drive letter", false));
+            }
+            Ok(())
+        }
+        fn available(&self, letter: u8) -> Result<bool, OperationError> {
+            let drives = unsafe { GetLogicalDrives() };
+            if drives == 0 {
+                return Err(last_error("Could not query drive letters", false));
+            }
+            Ok(drives & (1 << (letter - b'A')) == 0)
+        }
+        fn set_label(&self, volume: &str, label: &str) -> Result<(), OperationError> {
+            if unsafe { SetVolumeLabelW(wide(volume).as_ptr(), wide(label).as_ptr()) } == 0 {
+                return Err(last_error("Could not rename the volume", false));
+            }
+            Ok(())
+        }
 
         fn paths(&self, volume: &str) -> Result<Vec<String>, OperationError> {
             let volume = wide(volume);
@@ -257,6 +372,29 @@ mod win32 {
     #[derive(Default)]
     pub(crate) struct NativeVolumeManager;
     impl super::super::VolumeManager for NativeVolumeManager {
+        fn rename(&self, device: &Device, label: &str) -> Result<(), OperationError> {
+            rename_with(&NativeApi, device, label)
+        }
+        fn set_drive_letter(&self, device: &Device, letter: &str) -> Result<(), OperationError> {
+            for path in &device.mount_points {
+                for process_path in [std::env::current_exe(), std::env::current_dir()]
+                    .into_iter()
+                    .flatten()
+                {
+                    if process_path
+                        .to_string_lossy()
+                        .to_ascii_lowercase()
+                        .starts_with(&path.to_ascii_lowercase())
+                    {
+                        return Err(OperationError::new(
+                            OperationErrorKind::ProtectedDevice,
+                            "Diskvio is running from or using this volume as its working directory. Run it from another disk before changing the drive letter.",
+                        ));
+                    }
+                }
+            }
+            set_drive_letter_with(&NativeApi, device, letter)
+        }
         fn mount(&self, device: &Device) -> Result<String, OperationError> {
             let volume = device
                 .stable_id
@@ -316,6 +454,17 @@ mod tests {
     }
     impl VolumeApi for FakeApi {
         type Lock = ();
+        fn add_path(&self, _: &str, _: &str) -> Result<(), OperationError> {
+            self.calls.borrow_mut().push("add");
+            Ok(())
+        }
+        fn available(&self, _: u8) -> Result<bool, OperationError> {
+            Ok(true)
+        }
+        fn set_label(&self, _: &str, _: &str) -> Result<(), OperationError> {
+            self.calls.borrow_mut().push("label");
+            Ok(())
+        }
         fn paths(&self, _: &str) -> Result<Vec<String>, OperationError> {
             Ok(vec!["E:\\".into()])
         }
@@ -388,5 +537,153 @@ mod tests {
         };
         unmount_with(&api, &device()).unwrap();
         assert_eq!(*api.calls.borrow(), ["lock", "dismount", "remove"]);
+    }
+    struct LetterApi {
+        paths: RefCell<Vec<String>>,
+        calls: RefCell<Vec<String>>,
+        busy: bool,
+        occupied: bool,
+        fail_new: bool,
+        fail_restore: bool,
+        changed_on_lock: bool,
+    }
+    impl Default for LetterApi {
+        fn default() -> Self {
+            Self {
+                paths: RefCell::new(vec!["E:\\".into()]),
+                calls: RefCell::default(),
+                busy: false,
+                occupied: false,
+                fail_new: false,
+                fail_restore: false,
+                changed_on_lock: false,
+            }
+        }
+    }
+    impl VolumeApi for LetterApi {
+        type Lock = ();
+        fn paths(&self, _: &str) -> Result<Vec<String>, OperationError> {
+            Ok(self.paths.borrow().clone())
+        }
+        fn volume_at(&self, _: &str) -> Result<String, OperationError> {
+            Ok(VOLUME.into())
+        }
+        fn available(&self, _: u8) -> Result<bool, OperationError> {
+            Ok(!self.occupied)
+        }
+        fn lock(&self, _: &str) -> Result<(), OperationError> {
+            self.calls.borrow_mut().push("lock".into());
+            if self.changed_on_lock {
+                self.paths.borrow_mut().clear();
+            }
+            if self.busy {
+                Err(OperationError::new(OperationErrorKind::Busy, "Open files"))
+            } else {
+                Ok(())
+            }
+        }
+        fn dismount(&self, _: &()) -> Result<(), OperationError> {
+            self.calls.borrow_mut().push("dismount".into());
+            Ok(())
+        }
+        fn remove_path(&self, path: &str) -> Result<(), OperationError> {
+            self.calls.borrow_mut().push(format!("remove {path}"));
+            self.paths.borrow_mut().clear();
+            Ok(())
+        }
+        fn add_path(&self, path: &str, _: &str) -> Result<(), OperationError> {
+            self.calls.borrow_mut().push(format!("add {path}"));
+            if (path.starts_with('F') && self.fail_new)
+                || (path.starts_with('E') && self.fail_restore)
+            {
+                return Err(OperationError::new(
+                    OperationErrorKind::PermissionDenied,
+                    "Assignment failed",
+                ));
+            }
+            self.paths.borrow_mut().push(path.into());
+            Ok(())
+        }
+        fn set_label(&self, _: &str, label: &str) -> Result<(), OperationError> {
+            self.calls.borrow_mut().push(format!("label {label}"));
+            Ok(())
+        }
+    }
+    #[test]
+    fn drive_letter_change_locks_and_dismounts_before_removing_old_path() {
+        let api = LetterApi::default();
+        set_drive_letter_with(&api, &device(), "F").unwrap();
+        assert_eq!(
+            *api.calls.borrow(),
+            ["lock", "dismount", "remove E:\\", "add F:\\"]
+        );
+        assert_eq!(*api.paths.borrow(), ["F:\\"]);
+    }
+    #[test]
+    fn failed_assignment_restores_original_letter_and_reports_rollback_failure() {
+        for fail_restore in [false, true] {
+            let api = LetterApi {
+                fail_new: true,
+                fail_restore,
+                ..Default::default()
+            };
+            let error = set_drive_letter_with(&api, &device(), "F").unwrap_err();
+            assert_eq!(error.code, OperationErrorKind::PermissionDenied);
+            assert_eq!(
+                *api.calls.borrow(),
+                ["lock", "dismount", "remove E:\\", "add F:\\", "add E:\\"]
+            );
+            assert_eq!(api.paths.borrow().is_empty(), fail_restore);
+            assert!(error.message.contains(if fail_restore {
+                "could not be restored"
+            } else {
+                "was restored"
+            }));
+        }
+    }
+    #[test]
+    fn busy_occupied_or_changed_volumes_cannot_have_letters_removed() {
+        for api in [
+            LetterApi {
+                busy: true,
+                ..Default::default()
+            },
+            LetterApi {
+                occupied: true,
+                ..Default::default()
+            },
+            LetterApi {
+                changed_on_lock: true,
+                ..Default::default()
+            },
+        ] {
+            assert!(set_drive_letter_with(&api, &device(), "F").is_err());
+            assert!(
+                !api.calls
+                    .borrow()
+                    .iter()
+                    .any(|call| call.starts_with("remove") || call.starts_with("add"))
+            );
+        }
+    }
+    #[test]
+    fn unmounted_volume_can_receive_explicit_letter_and_label_uses_guid_identity() {
+        let api = LetterApi::default();
+        api.paths.borrow_mut().clear();
+        let unmounted = Device {
+            mount_points: vec![],
+            ..device()
+        };
+        set_drive_letter_with(&api, &unmounted, "F").unwrap();
+        assert_eq!(*api.calls.borrow(), ["lock", "dismount", "add F:\\"]);
+        let api = LetterApi::default();
+        rename_with(&api, &device(), "Données").unwrap();
+        assert_eq!(*api.calls.borrow(), ["label Données"]);
+        api.paths.borrow_mut().clear();
+        assert_eq!(
+            rename_with(&api, &device(), "Bad target").unwrap_err().code,
+            OperationErrorKind::IdentityChanged
+        );
+        assert_eq!(api.calls.borrow().len(), 1);
     }
 }

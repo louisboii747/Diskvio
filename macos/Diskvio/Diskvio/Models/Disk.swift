@@ -29,12 +29,13 @@ nonisolated struct DiskInventory: Decodable, Sendable {
 
     var nodes: [DeviceNode] {
         disks.map { disk in
-            let diskID = "disk:\(disk.device.identifier):\(disk.device.name):\(disk.device.sizeBytes ?? 0)"
+            let diskID = "disk:\(disk.device.stableID ?? disk.device.partitionUUID ?? disk.device.identifier):\(disk.device.sizeBytes ?? 0)"
             var root = DeviceNode(id: diskID, kind: .disk, device: disk.device, disk: disk)
             root.children = disk.partitions.map { partition in
                 let partitionID = "\(diskID)/partition:\(partition.device.partitionUUID ?? partition.device.identifier)"
                 var node = DeviceNode(id: partitionID, kind: .partition, device: partition.device, disk: disk)
                 node.contentType = partition.contentType
+                node.partition = partition
                 if let container = apfsContainers.first(where: { $0.device.identifier == partition.apfsContainerID }) {
                     let containerID = "\(partitionID)/container:\(container.uuid ?? container.device.identifier)"
                     var child = DeviceNode(id: containerID, kind: .container, device: container.device, disk: disk)
@@ -84,6 +85,14 @@ nonisolated struct DeviceInfo: Decodable, Sendable {
     let availableBytes: UInt64?
     let identityToken: String?
     let actions: [DiskAction]?
+    let volumeLabel: String?
+    let stableID: String?
+    let mountPoints: [String]?
+    let safety: DeviceSafety?
+    let healthStatus: String?
+    let operationalStatus: [String]?
+
+    var confirmedMountPoints: [String] { mountPoints ?? mountPoint.map { [$0] } ?? [] }
 
     enum CodingKeys: String, CodingKey {
         case identifier, name, filesystem
@@ -91,6 +100,21 @@ nonisolated struct DeviceInfo: Decodable, Sendable {
         case volumeUUID = "volume_uuid", partitionUUID = "partition_uuid"
         case usedBytes = "used_bytes", availableBytes = "available_bytes"
         case identityToken = "identity_token", actions
+        case volumeLabel = "volume_label", stableID = "stable_id", mountPoints = "mount_points", safety
+        case healthStatus = "health_status", operationalStatus = "operational_status"
+    }
+}
+
+nonisolated struct DeviceSafety: Decodable, Sendable {
+    let system: Bool?
+    let boot: Bool?
+    let recovery: Bool?
+    let hidden: Bool?
+    let readOnly: Bool?
+    let offline: Bool?
+    enum CodingKeys: String, CodingKey {
+        case system, boot, recovery, hidden, offline
+        case readOnly = "read_only"
     }
 }
 
@@ -130,9 +154,11 @@ nonisolated struct DiskPartition: Decodable, Sendable {
     let contentType: String?
     let offsetBytes: UInt64?
     let apfsContainerID: String?
+    let role: String?
+    let number: UInt32?
 
     enum CodingKeys: String, CodingKey {
-        case device
+        case device, role, number
         case contentType = "content_type", offsetBytes = "offset_bytes", apfsContainerID = "apfs_container_id"
     }
 }
@@ -187,6 +213,35 @@ nonisolated struct DeviceNode: Identifiable, Sendable {
     var contentType: String?
     var container: APFSContainer?
     var volume: APFSVolume?
+    var partition: DiskPartition?
+
+    var displayName: String {
+        if let partition { return PartitionPresentation(partition: partition).name }
+        if let label = device.volumeLabel, !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return label }
+        if kind == .container { return "APFS Container" }
+        if device.name != device.identifier && !device.name.isEmpty { return device.name }
+        return kind == .disk ? "Physical Disk \(disk.number)" : "Unlabelled Volume"
+    }
+
+    var physicalPartitionIdentifier: String? {
+        if kind == .partition { return device.identifier }
+        return disk.partitions.first { $0.apfsContainerID == container?.device.identifier && $0.apfsContainerID != nil }?.device.identifier
+    }
+
+    var badges: [String] {
+        var result: [String] = []
+        if disk.internal == false { result.append("External") }
+        if disk.removable == true { result.append("Removable") }
+        if disk.connectionType?.localizedCaseInsensitiveContains("USB") == true { result.append("USB") }
+        if device.safety?.system == true || volume?.roles.contains(where: { $0.caseInsensitiveCompare("System") == .orderedSame }) == true { result.append("System") }
+        if device.safety?.boot == true || volume?.roles.contains(where: { $0.caseInsensitiveCompare("Preboot") == .orderedSame }) == true { result.append("Boot") }
+        if device.safety?.recovery == true || partition?.role == "recovery" || volume?.roles.contains(where: { $0.caseInsensitiveCompare("Recovery") == .orderedSame }) == true { result.append("Recovery") }
+        if partition?.role == "efi_system" || contentType == "EFI" { result.append("EFI") }
+        if device.safety?.readOnly == true { result.append("Read-only") }
+        if volume?.encrypted == true { result.append("Encrypted") }
+        if volume?.locked == true { result.append("Locked") }
+        return result
+    }
 
     var capacityLabel: String {
         guard kind == .volume else { return "Capacity" }
@@ -199,7 +254,15 @@ nonisolated struct DeviceNode: Identifiable, Sendable {
     }
 
     var hasManagementActions: Bool {
-        !(device.actions ?? []).isEmpty || (kind != .disk && disk.device.actions?.contains(.eject) == true)
+        (device.actions ?? []).contains { operationTarget(for: $0) != nil } || operationTarget(for: .eject) != nil
+    }
+
+    func operationTarget(for action: DiskAction) -> DeviceNode? {
+        guard action != .setDriveLetter else { return nil }
+        if device.identityToken != nil, device.actions?.contains(action) == true { return self }
+        guard action == .eject, kind != .disk, disk.device.identityToken != nil,
+              disk.device.actions?.contains(.eject) == true else { return nil }
+        return DeviceNode(id: id, kind: .disk, device: disk.device, disk: disk)
     }
 
     var flattened: [DeviceNode] { [self] + (children ?? []).flatMap(\.flattened) }
@@ -217,11 +280,13 @@ nonisolated enum Capacity {
 
 nonisolated enum DiskAction: String, Codable, Sendable {
     case mount, unmount, eject
+    case renameVolume = "rename_volume"
+    case setDriveLetter = "set_drive_letter"
     var title: String {
-        switch self { case .mount: "Mount"; case .unmount: "Unmount"; case .eject: "Eject" }
+        switch self { case .mount: "Mount"; case .unmount: "Unmount"; case .eject: "Eject"; case .renameVolume: "Rename Volume"; case .setDriveLetter: "Change Drive Letter" }
     }
     var symbol: String {
-        switch self { case .mount: "externaldrive.badge.plus"; case .unmount: "externaldrive.badge.minus"; case .eject: "eject" }
+        switch self { case .mount: "externaldrive.badge.plus"; case .unmount: "externaldrive.badge.minus"; case .eject: "eject"; case .renameVolume: "pencil"; case .setDriveLetter: "character.cursor.ibeam" }
     }
 }
 
@@ -233,9 +298,11 @@ nonisolated struct PendingDiskOperation: Identifiable, Sendable {
 
     var title: String {
         switch action {
-        case .mount: "Mount \(node.device.name)?"
-        case .unmount: "Unmount \(node.device.name)?"
-        case .eject: "Eject \(node.device.name)?"
+        case .mount: "Mount \(node.displayName)?"
+        case .unmount: "Unmount \(node.displayName)?"
+        case .eject: "Eject \(node.displayName)?"
+        case .renameVolume: "Rename \(node.displayName)?"
+        case .setDriveLetter: "Change drive letter?"
         }
     }
 
@@ -247,6 +314,8 @@ nonisolated struct PendingDiskOperation: Identifiable, Sendable {
             "Open files on this volume may become unavailable. Save your work and close files stored on it before continuing."
         case .eject:
             "All volumes on this disk will become unavailable. Save your work and close files stored on the disk before continuing."
+        case .renameVolume: "The volume label and its Finder mount path may change."
+        case .setDriveLetter: "Drive letters apply only to Windows."
         }
     }
 
@@ -255,6 +324,8 @@ nonisolated struct PendingDiskOperation: Identifiable, Sendable {
         case .mount: "Mount"
         case .unmount: "Unmount"
         case .eject: "Eject"
+        case .renameVolume: "Rename"
+        case .setDriveLetter: "Change"
         }
     }
 }
@@ -263,9 +334,12 @@ nonisolated struct OperationRequest: Encodable, Sendable {
     let action: DiskAction
     let identifier: String
     let expectedIdentity: String
+    var volumeLabel: String?
+    var expectedMountPoints: [String]?
     enum CodingKeys: String, CodingKey {
         case action, identifier
         case expectedIdentity = "expected_identity"
+        case volumeLabel = "volume_label", expectedMountPoints = "expected_mount_points"
     }
 }
 
@@ -304,9 +378,13 @@ nonisolated struct OperationCapabilities: Decodable, Sendable {
     let deviceKind: String
     let identityToken: String?
     let actions: [DiskAction]
+    var unsupportedReason: String?
+    var labelMaxLength: Int?
+    var limitations: [String]?
     enum CodingKeys: String, CodingKey {
         case identifier, actions
         case deviceKind = "device_kind", identityToken = "identity_token"
+        case unsupportedReason = "unsupported_reason", labelMaxLength = "label_max_length", limitations
     }
 }
 
@@ -323,5 +401,10 @@ nonisolated struct OperationQueryRequest: Encodable, Sendable {
     let action: DiskAction?
     let identifier: String
     let expectedIdentity: String?
-    enum CodingKeys: String, CodingKey { case mode, action, identifier; case expectedIdentity = "expected_identity" }
+    var volumeLabel: String?
+    var expectedMountPoints: [String]?
+    enum CodingKeys: String, CodingKey {
+        case mode, action, identifier
+        case expectedIdentity = "expected_identity", volumeLabel = "volume_label", expectedMountPoints = "expected_mount_points"
+    }
 }

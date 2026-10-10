@@ -19,6 +19,16 @@ nonisolated struct PartitionMapLayout: Sendable {
             return PartitionMapSegment(partition: partition, index: index, startBytes: start, totalBytes: total)
         }
     }
+    /// A schematic comparison of reported sizes, with no invented gap regions.
+    func visualWidths(availableWidth: Double, minimumWidth: Double = 48, spacing: Double = 4) -> [Double] {
+        guard !segments.isEmpty else { return [] }
+        let count = Double(segments.count)
+        let usable = max(availableWidth - spacing * (count - 1), minimumWidth * count)
+        let remaining = max(0, usable - minimumWidth * count)
+        let weights = segments.map { Double($0.partition.device.sizeBytes ?? 0) }
+        let sum = weights.reduce(0, +)
+        return weights.map { minimumWidth + remaining * (sum > 0 ? $0 / sum : 1 / count) }
+    }
 }
 
 nonisolated struct PartitionMapSegment: Identifiable, Sendable {
@@ -29,8 +39,7 @@ nonisolated struct PartitionMapSegment: Identifiable, Sendable {
 
     var id: String { partition.device.identifier }
     var title: String {
-        if partition.device.name != id { return partition.device.name }
-        return partition.device.filesystem?.name ?? partition.contentType?.replacingOccurrences(of: "_", with: " ") ?? id
+        PartitionPresentation(partition: partition).name
     }
     var startFraction: Double {
         guard let totalBytes else { return 0 }

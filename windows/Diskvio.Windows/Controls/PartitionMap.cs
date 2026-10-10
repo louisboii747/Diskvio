@@ -6,42 +6,70 @@ using Microsoft.UI.Xaml.Media;
 
 namespace Diskvio.Windows.Controls;
 
-// Native buttons retain focus, keyboard activation, high-contrast and theme states.
 public sealed class PartitionMap : UserControl
 {
     public event Action<StoragePartition>? PartitionSelected;
-    private readonly Canvas _canvas = new();
+    private readonly Canvas _canvas = new() { Height = 84 };
     private PartitionLayout? _layout;
     private string? _selectedId;
-    public PartitionMap() { Content = _canvas; Height = 76; SizeChanged += (_, _) => Render(); }
+    public PartitionMap()
+    {
+        Content = new ScrollViewer { Content = _canvas, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        Height = 104;
+        SizeChanged += (_, _) => Render();
+        ActualThemeChanged += (_, _) => Render();
+    }
     public void Update(PartitionLayout? layout, string? selectedId)
     { _layout = layout; _selectedId = selectedId; Render(); }
+
     private void Render()
     {
+        var focused = _canvas.Children.OfType<Button>().FirstOrDefault(b => b.FocusState != FocusState.Unfocused)?.Tag as string;
         _canvas.Children.Clear();
-        if (_layout is null || ActualWidth <= 0) return;
-        var total = _layout.Segments.Sum(s => (double)s.Length);
-        if (total <= 0) return;
+        if (_layout is null || ActualWidth <= 0) { _canvas.Width = 0; return; }
+        var widths = _layout.VisualWidths(ActualWidth);
+        _canvas.Width = widths.Sum();
         double left = 0;
-        foreach (var segment in _layout.Segments)
+        for (var i = 0; i < _layout.Segments.Count; i++)
         {
-            var width = ActualWidth * segment.Length / total;
+            var segment = _layout.Segments[i];
+            var width = widths[i];
+            var categoryBrush = (Brush)Application.Current.Resources[BrushKey(segment.Category)];
             FrameworkElement element;
             if (segment.Partition is { } partition)
             {
-                var button = new Button { Content = segment.Label, Width = Math.Max(0, width), Height = 76,
-                    Padding = new Thickness(0), MinWidth = 0, HorizontalContentAlignment = HorizontalAlignment.Center };
-                if (_selectedId == partition.Device.Identifier)
-                    button.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
+                var content = new Grid { RowSpacing = 8, HorizontalAlignment = HorizontalAlignment.Stretch };
+                content.RowDefinitions.Add(new() { Height = new GridLength(5) });
+                content.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
+                content.Children.Add(new Border { Background = categoryBrush, CornerRadius = new CornerRadius(2) });
+                if (width >= 90)
+                {
+                    var labels = new StackPanel { Spacing = 3, Margin = new Thickness(6, 0, 6, 0) };
+                    labels.Children.Add(new TextBlock { Text = segment.Label, TextTrimming = TextTrimming.CharacterEllipsis, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                    labels.Children.Add(new TextBlock { Text = Disk.FormatCapacity(segment.Length), FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis });
+                    Grid.SetRow(labels, 1); content.Children.Add(labels);
+                }
+                var button = new Button { Content = content, Tag = partition.Device.Identifier, Width = Math.Max(1, width - 2), Height = 84,
+                    Padding = new Thickness(4), MinWidth = 0, HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    VerticalContentAlignment = VerticalAlignment.Stretch,
+                    BorderThickness = new Thickness(_selectedId == partition.Device.Identifier ? 2 : 1),
+                    BorderBrush = (Brush)Application.Current.Resources[_selectedId == partition.Device.Identifier ? "SystemControlHighlightAccentBrush" : "ControlStrokeColorDefaultBrush"] };
+                AutomationProperties.SetHelpText(button, "Select to inspect this partition. Small partitions have a minimum visual width.");
                 button.Click += (_, _) => PartitionSelected?.Invoke(partition);
                 element = button;
             }
-            else element = new Border { Width = width, Height = 76, Background = (Brush)Application.Current.Resources["ControlFillColorSecondaryBrush"] };
-            ToolTipService.SetToolTip(element, segment.Description);
+            else element = new Border { Width = Math.Max(1, width - 1), Height = 84, Background = categoryBrush, CornerRadius = new CornerRadius(3) };
+            ToolTipService.SetToolTip(element, new TextBlock { Text = segment.Description, MaxWidth = 420, TextWrapping = TextWrapping.Wrap });
             AutomationProperties.SetName(element, segment.Description);
-            Canvas.SetLeft(element, left);
-            _canvas.Children.Add(element);
-            left += width;
+            Canvas.SetLeft(element, left); _canvas.Children.Add(element); left += width;
+            if (element is Button focusButton && Equals(focusButton.Tag, focused)) focusButton.Focus(FocusState.Programmatic);
         }
     }
+
+    public static string BrushKey(string category) => category switch
+    {
+        "efi_system" => "PartitionSystemBrush", "recovery" => "PartitionRecoveryBrush",
+        "microsoft_reserved" => "PartitionReservedBrush", "basic_data" => "PartitionDataBrush",
+        "unmapped" => "PartitionUnmappedBrush", _ => "PartitionUnknownBrush"
+    };
 }
