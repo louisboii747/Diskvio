@@ -32,8 +32,8 @@ public sealed class RefinementTests
     [InlineData("e3c9e316-0b5c-4db8-817d-f92df00215ae", "microsoft_reserved")]
     [InlineData("ebd0a0a2-b9e5-4433-87c0-68b6b72699c7", "basic_data")]
     [InlineData("other", "unknown")]
-    public void LegacyContractsDeriveOnlyKnownRoles(string guid, string expected)
-        => Assert.Equal(expected, PartitionPresentation.Role(Partition() with { GptType = guid }));
+    public void LegacyContractsDeriveOnlyKnownRoles(string partitionType, string expected)
+        => Assert.Equal(expected, PartitionPresentation.Role(Partition() with { GptType = partitionType }));
 
     [Fact] public void TechnicalIdentifiersRemainSecondaryAndMissingMetadataStaysUnknown()
     {

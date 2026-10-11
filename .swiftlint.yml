@@ -1,0 +1,18 @@
+included:
+  - macos/Diskvio/Diskvio
+  - macos/Diskvio/DiskvioTests
+  - macos/Diskvio/DiskvioUITests
+  - macos/Tests
+  - macos/Package.swift
+
+only_rules:
+  - duplicate_imports
+  - force_cast
+  - force_try
+  - identical_operands
+  - implicitly_unwrapped_optional
+  - return_value_from_void_function
+  - unneeded_break_in_switch
+  - unused_closure_parameter
+  - unused_optional_binding
+  - valid_ibinspectable

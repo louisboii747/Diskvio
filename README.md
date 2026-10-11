@@ -1,6 +1,10 @@
 # Diskvio
 A modern, native cross-platform disk and partition manager, written in Rust.
 
+## Linting and testing
+
+GitHub Actions runs lint, builds and tests for macOS and Windows on pushes to `main` and pull requests targeting `main`, plus Rust portability checks on Linux. Enable commit checks in each clone with `git config --local core.hooksPath .githooks`. See [CI and commit checks](docs/ci.md) for prerequisites, platform coverage and local commands.
+
 ## Windows app
 
 The Windows frontend is a native **C# / .NET 10 / WinUI 3** desktop app, using the stable Windows App SDK **2.5.1** and single-project MSIX packaging. It shares `diskvio-core` and `diskvio-ffi` with the macOS app. Windows support is currently **x64 only**.
