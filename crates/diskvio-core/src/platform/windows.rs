@@ -33,7 +33,7 @@ struct StorageDisk {
     bus_type: String,
     partition_style: String,
     unique_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_unique_id_format")]
     unique_id_format: Option<u16>,
     serial_number: Option<String>,
     path: Option<String>,
@@ -106,6 +106,36 @@ struct StorageVolume {
     health_status: Option<String>,
     #[serde(default)]
     operational_status: Vec<String>,
+}
+
+// PowerShell's ConvertTo-Json can emit MSFT_Disk.UniqueIdFormat as its
+// display name rather than the underlying VPD identifier type (0, 1, 2, 3, 8).
+fn deserialize_unique_id_format<'de, D>(deserializer: D) -> Result<Option<u16>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Error as _;
+
+    match Option::<serde_json::Value>::deserialize(deserializer)? {
+        None => Ok(None),
+        Some(serde_json::Value::Number(value)) => value
+            .as_u64()
+            .and_then(|value| u16::try_from(value).ok())
+            .map(Some)
+            .ok_or_else(|| D::Error::custom("invalid numeric disk unique ID format")),
+        Some(serde_json::Value::String(name)) => {
+            let code = match name.as_str() {
+                "Vendor Specific" => 0,
+                "Vendor Id" => 1,
+                "EUI64" => 2,
+                "FCPH Name" => 3,
+                "SCSI Name String" => 8,
+                _ => return Err(D::Error::custom("unknown disk unique ID format")),
+            };
+            Ok(Some(code))
+        }
+        Some(_) => Err(D::Error::custom("invalid disk unique ID format")),
+    }
 }
 
 fn nonempty(value: Option<String>) -> Option<String> {
@@ -479,6 +509,30 @@ mod tests {
             identifier: volume(inventory).identifier.clone(),
             expected_identity: volume(inventory).identity_token.clone().unwrap(),
         }
+    }
+
+    #[test]
+    fn recognizes_windows_disk_unique_id_format_names_and_codes() {
+        for (name, code) in [
+            ("Vendor Specific", 0),
+            ("Vendor Id", 1),
+            ("EUI64", 2),
+            ("FCPH Name", 3),
+            ("SCSI Name String", 8),
+        ] {
+            let mut input = fixture();
+            input["disks"][0]["unique_id_format"] = name.into();
+            let decoded: StorageInventory = serde_json::from_value(input).unwrap();
+            assert_eq!(decoded.disks[0].unique_id_format, Some(code));
+        }
+
+        let mut input = fixture();
+        input["disks"][0]["unique_id_format"] = 3.into();
+        let decoded: StorageInventory = serde_json::from_value(input.clone()).unwrap();
+        assert_eq!(decoded.disks[0].unique_id_format, Some(3));
+
+        input["disks"][0]["unique_id_format"] = "unknown format".into();
+        assert!(serde_json::from_value::<StorageInventory>(input).is_err());
     }
 
     #[test]
