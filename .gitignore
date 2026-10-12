@@ -45,3 +45,6 @@ Generated Files/
 DerivedData/
 macos/.build/
 macos/.swiftpm/
+
+/buildServer.json
+/.compile

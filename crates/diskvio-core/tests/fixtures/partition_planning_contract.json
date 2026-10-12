@@ -1,0 +1,149 @@
+{
+  "status": "ok",
+  "planning": {
+    "api_version": 1,
+    "preview_only": true,
+    "execution_supported": false,
+    "validation": {
+      "valid": true,
+      "issues": []
+    },
+    "discovery": {
+      "identifier": "PhysicalDrive2",
+      "name": "Synthetic test disk",
+      "physical_identity": {
+        "unique_id": "naa.test-disk-001",
+        "unique_id_format": 8,
+        "serial_number": "TEST001"
+      },
+      "partition_table": "gpt",
+      "geometry": {
+        "disk_guid": "aaaaaaaa-1111-2222-3333-444444444444",
+        "disk_size_bytes": 104857600,
+        "usable_start_bytes": 17408,
+        "usable_end_bytes": 104840704,
+        "logical_sector_bytes": 512,
+        "physical_sector_bytes": 4096,
+        "sector_alignment_offset_bytes": 0,
+        "max_partition_count": 128
+      },
+      "layout_snapshot": {
+        "version": 1,
+        "token": "opaque backend snapshot retained without modification"
+      },
+      "safety": {
+        "external": true,
+        "system": false,
+        "boot": false,
+        "boot_from_disk": false,
+        "read_only": false,
+        "offline": false,
+        "clustered": false,
+        "storage_pool": false,
+        "dynamic": false
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "regions": [
+        {
+          "parent_identity": {
+            "unique_id": "naa.test-disk-001",
+            "unique_id_format": 8,
+            "serial_number": "TEST001"
+          },
+          "identity": {
+            "start_offset_bytes": 5242880,
+            "end_offset_bytes": 104840704
+          },
+          "capacity_bytes": 99597824,
+          "required_alignment_bytes": 1048576,
+          "first_usable_aligned_offset_bytes": 5242880,
+          "last_usable_aligned_boundary_bytes": 103809024,
+          "aligned_capacity_bytes": 98566144,
+          "maximum_allocatable_bytes": 98566144,
+          "partition_table": "gpt",
+          "validation": {
+            "valid": true,
+            "issues": []
+          }
+        }
+      ],
+      "partitions": [
+        {
+          "parent_disk": "PhysicalDrive2",
+          "parent_identity": {
+            "unique_id": "naa.test-disk-001",
+            "unique_id_format": 8,
+            "serial_number": "TEST001"
+          },
+          "partition": {
+            "partition_id": "00000001-1111-2222-3333-444444444444",
+            "number": 1,
+            "offset_bytes": 1048576,
+            "size_bytes": 4194304,
+            "gpt_type": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+            "attributes": 0,
+            "service_partition": false,
+            "name": null,
+            "safety": {
+              "flags": {
+                "system": false,
+                "boot": false,
+                "recovery": false,
+                "hidden": false,
+                "read_only": false,
+                "offline": false,
+                "page_file": false
+              },
+              "active": false,
+              "shadow_copy": false,
+              "encrypted": false,
+              "volumes_complete": true,
+              "hosts_windows": false
+            },
+            "volumes": [
+              {
+                "identifier": "\\\\?\\Volume{00000001-aaaa-bbbb-cccc-111111111111}\\",
+                "mount_points": [
+                  "E:\\"
+                ]
+              }
+            ]
+          },
+          "eligible": true,
+          "validation": {
+            "valid": true,
+            "issues": []
+          },
+          "data_loss_warning": "Deleting this partition in a future execution milestone would make all data on it inaccessible and may cause permanent data loss. This preview changes no storage."
+        }
+      ]
+    },
+    "create_preview": {
+      "parent_identity": {
+        "unique_id": "naa.test-disk-001",
+        "unique_id_format": 8,
+        "serial_number": "TEST001"
+      },
+      "region": {
+        "start_offset_bytes": 5242880,
+        "end_offset_bytes": 104840704
+      },
+      "expected_layout": {
+        "version": 1,
+        "token": "opaque backend snapshot retained without modification"
+      },
+      "partition_table": "gpt",
+      "proposed_gpt_type": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+      "required_alignment_bytes": 1048576,
+      "start_offset_bytes": 5242880,
+      "end_offset_bytes": 9437184,
+      "allocated_size_bytes": 4194304,
+      "remaining_region_capacity_bytes": 95403520,
+      "remaining_allocatable_capacity_bytes": 94371840
+    },
+    "delete_preview": null
+  }
+}

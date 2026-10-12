@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "macOS: Configure Swift editor",
+      "type": "process",
+      "command": "python3",
+      "args": ["${workspaceFolder}/scripts/configure_swift_editor.py"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "macOS: Build Diskvio",
+      "type": "process",
+      "command": "xcodebuild",
+      "args": [
+        "-project", "${workspaceFolder}/macos/Diskvio/Diskvio.xcodeproj",
+        "-scheme", "Diskvio",
+        "-configuration", "Debug",
+        "-destination", "platform=macOS",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "problemMatcher": "$swiftc"
+    }
+  ]
+}

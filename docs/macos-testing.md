@@ -25,6 +25,23 @@ xcodebuild -project macos/Diskvio/Diskvio.xcodeproj -scheme Diskvio \
 
 In restricted agent environments, DiskManagement access and Swift macro plugins may be blocked by the agent's sandbox. These commands were validated outside that agent sandbox; this does not imply administrative elevation or a change to the application's sandbox setting.
 
+## VS Code Swift diagnostics
+
+Open the repository root in VS Code and install the recommended `swiftlang.swift-vscode` extension. The native app is an Xcode target; `macos/Package.swift` contains only the portable model tests. SourceKit needs the app target's compiler settings to resolve cross-file types and `DiskvioFFI`.
+
+On a Mac with Xcode and Homebrew:
+
+```sh
+brew install xcode-build-server
+python3 scripts/configure_swift_editor.py
+```
+
+Build the **Diskvio** scheme in Xcode with Command-B, then run **Swift: Restart LSP Server** from VS Code's command palette. The bridge reads the scheme's build logs, including its source list, SDK, actor isolation and FFI module search path. Rebuild after adding files or changing Xcode build settings.
+
+The repository includes **macOS: Configure Swift editor** and **macOS: Build Diskvio** tasks. The configure task can regenerate the binding after moving the checkout or switching Xcode installations. Generated `buildServer.json` contains machine-specific paths and is ignored by Git. It binds to Xcode's default DerivedData location; builds that override `-derivedDataPath` do not refresh this binding's compiler information. The application target and portable Swift test package remain unchanged.
+
+See the [build-server documentation](https://github.com/SolaWing/xcode-build-server) for the Xcode bridge and [Swift extension commands](https://docs.swift.org/latest/documentation/userdocs/commands/) for language-server restart and re-index commands.
+
 ## Physical device checks
 
 Use an external USB disk whose files can be closed for this test. Do not use an internal or boot/system disk for management checks.

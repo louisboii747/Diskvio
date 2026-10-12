@@ -8,20 +8,24 @@ use crate::{
     OperationErrorKind, OperationOutcome, OperationRequest, Partition, PartitionScheme,
     PhysicalDisk, Volume,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+pub(super) mod partition_layout;
 
 const INVENTORY_SCRIPT: &str = include_str!("windows_inventory.ps1");
 
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct StorageInventory {
     disks: Vec<StorageDisk>,
     #[serde(default)]
     unattached_volumes: Vec<StorageVolume>,
     #[serde(default)]
     warnings: Vec<String>,
+    #[serde(default)]
+    planning_warnings: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct StorageDisk {
     number: u32,
     name: String,
@@ -29,6 +33,8 @@ struct StorageDisk {
     bus_type: String,
     partition_style: String,
     unique_id: Option<String>,
+    #[serde(default)]
+    unique_id_format: Option<u16>,
     serial_number: Option<String>,
     path: Option<String>,
     guid: Option<String>,
@@ -42,9 +48,27 @@ struct StorageDisk {
     health_status: Option<String>,
     #[serde(default)]
     operational_status: Vec<String>,
+    #[serde(default)]
+    planning: Option<StoragePlanningDisk>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
+struct StoragePlanningDisk {
+    boot_from_disk: Option<bool>,
+    storage_pool: Option<bool>,
+    logical_sector_bytes: Option<u32>,
+    physical_sector_bytes: Option<u32>,
+    partition_count: Option<u32>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct StoragePlanningPartition {
+    encrypted: Option<bool>,
+    hosts_windows: Option<bool>,
+    volumes_complete: Option<bool>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 struct StoragePartition {
     number: u32,
     guid: Option<String>,
@@ -66,9 +90,11 @@ struct StoragePartition {
     no_default_drive_letter: Option<bool>,
     volumes: Vec<StorageVolume>,
     page_file: Option<bool>,
+    #[serde(default)]
+    planning: Option<StoragePlanningPartition>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct StorageVolume {
     path: String,
     unique_id: Option<String>,

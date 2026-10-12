@@ -171,6 +171,71 @@ pub unsafe extern "C" fn diskvio_operation_json(request: *const u8, length: usiz
         .unwrap_or(ptr::null_mut())
 }
 
+pub const MAX_PARTITION_PLANNING_REQUEST_BYTES: usize = 1_048_576;
+
+#[derive(Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+enum PartitionApiResponse {
+    Ok {
+        planning: diskvio_core::PartitionPlanningResponse,
+    },
+    Error {
+        message: String,
+        error: diskvio_core::PlanningIssue,
+        planning: diskvio_core::PartitionPlanningResponse,
+    },
+}
+
+fn partition_error(error: diskvio_core::PlanningIssue) -> PartitionApiResponse {
+    PartitionApiResponse::Error {
+        message: error.message.clone(),
+        planning: diskvio_core::PartitionPlanningResponse::rejected(error.clone()),
+        error,
+    }
+}
+
+fn partition_response(bytes: &[u8]) -> PartitionApiResponse {
+    match serde_json::from_slice::<diskvio_core::PartitionPlanningRequest>(bytes) {
+        Ok(request) => PartitionApiResponse::Ok {
+            planning: diskvio_core::preview_partition_operation(&request),
+        },
+        Err(e) => partition_error(diskvio_core::PlanningIssue::new(
+            diskvio_core::PlanningErrorCode::InvalidParameters,
+            format!("Invalid preview-only partition request: {e}"),
+        )),
+    }
+}
+
+/// # Safety
+/// The request must be null or reference `length` readable bytes for this call.
+/// Free each non-null result exactly once with `diskvio_string_free`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn diskvio_partition_plan_json(
+    request: *const u8,
+    length: usize,
+) -> *mut c_char {
+    let response = catch_unwind(|| {
+        if request.is_null() || length == 0 || length > MAX_PARTITION_PLANNING_REQUEST_BYTES {
+            return partition_error(diskvio_core::PlanningIssue::new(
+                diskvio_core::PlanningErrorCode::InvalidParameters,
+                "Partition planning requests must contain 1 to 1048576 UTF-8 bytes",
+            ));
+        }
+        partition_response(unsafe { std::slice::from_raw_parts(request, length) })
+    })
+    .unwrap_or_else(|_| {
+        partition_error(diskvio_core::PlanningIssue::new(
+            diskvio_core::PlanningErrorCode::InternalError,
+            "Internal partition preview error",
+        ))
+    });
+    serde_json::to_string(&response)
+        .ok()
+        .and_then(|json| CString::new(json).ok())
+        .map(CString::into_raw)
+        .unwrap_or(ptr::null_mut())
+}
+
 /// Frees a Rust-owned Diskvio JSON response. Null is accepted.
 ///
 /// # Safety
@@ -190,6 +255,79 @@ pub unsafe extern "C" fn diskvio_string_free(pointer: *mut c_char) {
 mod tests {
     use super::*;
     use std::ffi::CStr;
+
+    fn planning_ffi(bytes: &[u8]) -> serde_json::Value {
+        let pointer = unsafe { diskvio_partition_plan_json(bytes.as_ptr(), bytes.len()) };
+        assert!(!pointer.is_null());
+        let value = serde_json::from_slice(unsafe { CStr::from_ptr(pointer) }.to_bytes()).unwrap();
+        unsafe {
+            diskvio_string_free(pointer);
+        }
+        value
+    }
+
+    #[test]
+    fn planning_rejects_invalid_buffers_and_owns_each_response() {
+        for (request, length) in [
+            (ptr::null(), 0),
+            (ptr::null(), MAX_PARTITION_PLANNING_REQUEST_BYTES + 1),
+            (b"{}".as_ptr(), 0),
+            (b"{}".as_ptr(), MAX_PARTITION_PLANNING_REQUEST_BYTES + 1),
+        ] {
+            let pointer = unsafe { diskvio_partition_plan_json(request, length) };
+            assert!(!pointer.is_null());
+            let value: serde_json::Value =
+                serde_json::from_slice(unsafe { CStr::from_ptr(pointer) }.to_bytes()).unwrap();
+            assert_eq!(value["status"], "error");
+            assert_eq!(value["error"]["code"], "invalid_parameters");
+            assert_eq!(value["planning"]["execution_supported"], false);
+            unsafe {
+                diskvio_string_free(pointer);
+            }
+        }
+        for bytes in [
+            b"{".as_slice(),
+            b"\xff",
+            b"null",
+            b"[]",
+            br#"{"mode":"discover","identifier":"PhysicalDrive2","force":true}"#,
+            br#"{"mode":"execute","identifier":"PhysicalDrive2"}"#,
+            br#"{"mode":"format","identifier":"PhysicalDrive2"}"#,
+            br#"{"mode":"discover","identifier":"PhysicalDrive2","action":"delete_partition"}"#,
+        ] {
+            assert_eq!(planning_ffi(bytes)["error"]["code"], "invalid_parameters");
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn macos_and_portable_planning_report_unsupported_without_discovery() {
+        let response = planning_ffi(br#"{"mode":"discover","identifier":"disk2"}"#);
+        assert_eq!(response["status"], "ok");
+        assert_eq!(response["planning"]["validation"]["valid"], false);
+        assert_eq!(
+            response["planning"]["validation"]["issues"][0]["code"],
+            "unsupported_platform"
+        );
+        assert_eq!(response["planning"]["preview_only"], true);
+    }
+
+    #[test]
+    fn partition_execution_names_remain_rejected_by_legacy_dispatch() {
+        for action in [
+            "create_partition",
+            "delete_partition",
+            "create",
+            "delete",
+            "format",
+            "initialize_disk",
+            "set_drive_layout",
+        ] {
+            let request = serde_json::json!({"action":action,"identifier":"PhysicalDrive2","expected_identity":"test"});
+            let response = operation_response(&serde_json::to_vec(&request).unwrap());
+            assert_eq!(response["error"]["code"], "invalid_request");
+        }
+    }
 
     #[test]
     fn serializes_success_and_frees_ffi_allocation() {

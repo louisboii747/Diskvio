@@ -29,4 +29,8 @@ Only an external USB basic-data volume with a backend identity and matching adve
 
 ## Validation boundaries
 
+Milestone 6A adds [preview-only partition foundations](milestone-6a-partition-foundations.md). `PartitionPlanningRequest` and `IPartitionPlanningService` use the dedicated `diskvio_partition_plan_json` export through the existing Rust-string SafeHandle. The four original exports and `IDiskService` remain compatible. The WinUI inspector can explicitly request allocation eligibility; it displays backend regions and rejections without dispatching an executable action or deriving policy from visual gaps.
+
+Rust reconciles the existing Storage inventory with read-only native GPT, length, sector alignment and device identity queries. Persistent VPD/serial identity is separate from the versioned layout snapshot. Complete safety evidence and an exact expendable test-media designation are required for plans. Every response reports execution unsupported. Windows hardware, native query permissions and Debug/Release WinUI validation remain pending on this Mac.
+
 Tests link the actual portable models, services and view models without loading WinUI. Native integration tests perform discovery and capability queries only. Mutation tests use fake APIs and command runners; no real storage mutation runs automatically. Existing macOS fixture tests also run on Windows using a test-only plist dependency. Native macOS builds and runtime checks require a Mac. See the milestone report for exact successful commands and outstanding manual checks.

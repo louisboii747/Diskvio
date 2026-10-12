@@ -2,6 +2,8 @@ import SwiftUI
 
 struct DeviceInspector: View {
     let node: DeviceNode
+    @State private var partitionPlanning: PartitionPlanningResult?
+    @State private var partitionPlanningError: String?
 
     var body: some View {
         Form {
@@ -38,6 +40,18 @@ struct DeviceInspector: View {
                 PropertyRow(title: "Offline", value: yesNo(node.device.safety?.offline))
                 PropertyRow(title: "APFS roles", value: node.volume?.roles.joined(separator: ", "))
             }
+            Section("Partition planning") {
+                Text("Preview only. Partition creation and deletion cannot execute.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if let partitionPlanning {
+                    ForEach(Array(partitionPlanning.validation.issues.enumerated()), id: \.offset) { _, issue in
+                        PropertyRow(title: issue.code.replacingOccurrences(of: "_", with: " "), value: issue.message)
+                    }
+                } else {
+                    Text(partitionPlanningError ?? "Checking backend support…")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section("Advanced Identity") {
                 PropertyRow(title: "Backend name", value: node.device.name)
                 PropertyRow(title: "Stable device identifier", value: node.device.stableID ?? node.disk.device.stableID)
@@ -67,6 +81,21 @@ struct DeviceInspector: View {
             }
         }
         .formStyle(.grouped)
+        .task(id: node.disk.device.stableID ?? node.disk.device.identifier) {
+            partitionPlanning = nil
+            partitionPlanningError = nil
+            let identifier = node.disk.device.identifier
+            do {
+                let result = try await Task.detached {
+                    try DiskService.partitionPlanning(.discover(identifier: identifier))
+                }.value
+                guard !Task.isCancelled else { return }
+                partitionPlanning = result
+            } catch {
+                guard !Task.isCancelled else { return }
+                partitionPlanningError = error.localizedDescription
+            }
+        }
     }
 
     private func yesNo(_ value: Bool?) -> String? { value.map { $0 ? "Yes" : "No" } }

@@ -17,3 +17,10 @@ pub(crate) fn backend() -> impl crate::DiskBackend {
 pub use macos::{disk_inventory, list_disks};
 #[cfg(target_os = "windows")]
 pub use windows::{disk_inventory, list_disks};
+
+#[cfg(target_os = "windows")]
+pub(crate) fn partition_preview(
+    request: &crate::PartitionPlanningRequest,
+) -> crate::PartitionPlanningResponse {
+    windows::partition_layout::preview(request)
+}

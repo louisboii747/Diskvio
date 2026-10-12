@@ -3,6 +3,19 @@ namespace Diskvio.Windows.Tests;
 public sealed class NativeInventoryTests
 {
     [Fact] [Trait("Category", "NativeIntegration")]
+    public async Task PartitionPlanningQueriesNeverAdvertiseExecution()
+    {
+        var service = new DiskService();
+        var inventory = await service.InventoryAsync();
+        foreach (var disk in inventory.Disks)
+        {
+            var result = await service.PlanPartitionAsync(new Models.DiscoverPartitionLayoutRequest { Identifier = disk.Device.Identifier });
+            Assert.True(result.PreviewOnly);
+            Assert.False(result.ExecutionSupported);
+            if (result.Discovery is { } discovery) Assert.Equal(disk.Device.Identifier, discovery.Identifier);
+        }
+    }
+    [Fact] [Trait("Category", "NativeIntegration")]
     public async Task RealRustInventoryAndCapabilitiesRoundTripWithoutOperations()
     {
         var service = new DiskService();

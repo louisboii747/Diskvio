@@ -72,6 +72,19 @@ struct DiskService: Sendable {
         try decodeOperation(operationResponseData(request))
     }
 
+    nonisolated static func partitionPlanning(_ request: PartitionPlanningRequest) throws -> PartitionPlanningResult {
+        let data = try request.encoded()
+        guard (1...1_048_576).contains(data.count) else { throw PartitionPlanningContractError.invalidResponse }
+        return try data.withUnsafeBytes { buffer in
+            guard let pointer = diskvio_partition_plan_json(buffer.bindMemory(to: UInt8.self).baseAddress, buffer.count) else {
+                throw DiskServiceError.missingResponse
+            }
+            defer { diskvio_string_free(pointer) }
+            guard let json = String(validatingCString: pointer) else { throw DiskServiceError.invalidUTF8 }
+            return try PartitionPlanningResult.decode(Data(json.utf8))
+        }
+    }
+
     nonisolated static func supportedOperations(identifier: String) throws -> OperationCapabilities {
         let request = OperationQueryRequest(mode: "supported_operations", action: nil, identifier: identifier, expectedIdentity: nil)
         return try decodeCapabilities(operationResponseData(request))

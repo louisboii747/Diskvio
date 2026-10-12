@@ -5,7 +5,7 @@ using Diskvio.Windows.Models;
 
 namespace Diskvio.Windows.Services;
 
-public sealed class DiskService : IDiskService
+public sealed class DiskService : IDiskService, IPartitionPlanningService
 {
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private static readonly JsonSerializerOptions JsonOptions = new() { RespectNullableAnnotations = true };
@@ -15,6 +15,17 @@ public sealed class DiskService : IDiskService
     public Task<DiskOperationOutcome> PerformAsync(DiskOperationRequest request) => Task.Run(() => DecodeOperation(ReadOperation(request)));
     public Task<OperationValidation> ValidateAsync(DiskOperationRequest request) => Task.Run(() => DecodeValidation(ReadOperation(new { mode = "validate", action = request.Action, identifier = request.Identifier, expected_identity = request.ExpectedIdentity, volume_label = request.VolumeLabel, drive_letter = request.DriveLetter, expected_mount_points = request.ExpectedMountPoints })));
     public Task<OperationCapabilities> SupportedOperationsAsync(string identifier) => Task.Run(() => DecodeCapabilities(ReadOperation(new { mode = "supported_operations", identifier })));
+
+    public Task<PartitionPlanningResult> PlanPartitionAsync(PartitionPlanningRequest request) => Task.Run(() =>
+        DecodePartitionPlanning(ReadNative(() => NativeMethods.PartitionPlan(JsonSerializer.SerializeToUtf8Bytes(request, JsonOptions)))));
+
+    internal static PartitionPlanningResult DecodePartitionPlanning(string json)
+    {
+        var result = DecodeStorageResponse(json).Planning ?? throw new DiskServiceException("Missing partition planning result.");
+        if (result.ApiVersion != 1 || !result.PreviewOnly || result.ExecutionSupported || result.Validation.Valid != (result.Validation.Issues.Count == 0))
+            throw new DiskServiceException("The backend returned an invalid preview-only partition contract.");
+        return result;
+    }
 
     private static string ReadOperation<T>(T request)
     {

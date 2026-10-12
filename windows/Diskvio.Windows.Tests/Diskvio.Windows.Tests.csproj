@@ -27,6 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\..\crates\diskvio-core\tests\fixtures\partition_planning_contract.json" LogicalName="partition_planning_contract.json" />
     <Using Include="Xunit" />
     <!-- Compile the actual UI-independent production source without loading the
          WinUI application into the test host or duplicating an implementation. -->

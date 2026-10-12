@@ -56,7 +56,20 @@ The managed tests cover legacy and richer JSON contracts, structured operation e
 
 See [Windows architecture](docs/windows-architecture.md) for the native ownership contract, build pipeline, limitations and extension points.
 
+## Partition planning foundations
+
+Milestone 6A adds a separate preview-only Rust API for authoritative Windows GPT layout discovery, aligned allocation regions, external test-media safety validation and create/delete plans. `diskvio_partition_plan_json` cannot execute partition changes. Typed C# and Swift bindings preserve the existing operation ABI; the WinUI inspector can query allocation eligibility, and SwiftUI reports the backend's explicit macOS unsupported result. See [Milestone 6A](docs/milestone-6a-partition-foundations.md) for contracts, validation results, conservative limitations and Milestone 6B requirements.
+
+```sh
+cargo run -p diskvio-cli -- --partition-layout PhysicalDrive2
+cargo run -p diskvio-cli -- --partition-plan request.json
+```
+
+These commands perform discovery and preview validation only. Formatting, partition creation/deletion and raw writes remain unavailable on every platform.
+
 ## macOS app
+
+For Swift editing in VS Code, use the [Xcode language-server setup](docs/macos-testing.md#vs-code-swift-diagnostics) to resolve app types and the Rust FFI module.
 
 Open `macos/Diskvio/Diskvio.xcodeproj` and build the `Diskvio` scheme on an Apple Silicon Mac. Xcode's **Build Rust FFI** phase runs Cargo, creates `libdiskvio_ffi.a` for the selected architecture, and links it into the SwiftUI app. Rust and its `aarch64-apple-darwin` target must be installed. No library needs to be copied into Xcode by hand.
 

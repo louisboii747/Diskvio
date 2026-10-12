@@ -111,6 +111,12 @@
                 <StackPanel Margin="0,0,0,12" Spacing="3"><TextBlock Text="{Binding Label}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{ThemeResource CaptionTextBlockStyle}" /><TextBlock Text="{Binding Value}" IsTextSelectionEnabled="True" TextWrapping="Wrap" /></StackPanel>
               </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
               <Expander Header="Current limitations" HorizontalAlignment="Stretch"><TextBlock Text="{Binding Limitations}" TextWrapping="Wrap" Style="{ThemeResource CaptionTextBlockStyle}" /></Expander>
+              <Expander Header="Partition planning" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="12">
+                  <Button Content="Inspect allocation eligibility" Command="{Binding InspectPartitionPlanningCommand}" />
+                  <TextBlock Text="{Binding PartitionPlanningSummary}" TextWrapping="Wrap" IsTextSelectionEnabled="True" Style="{ThemeResource CaptionTextBlockStyle}" />
+                </StackPanel>
+              </Expander>
             </StackPanel>
           </Border>
         </Grid>

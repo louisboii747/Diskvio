@@ -140,6 +140,7 @@ public sealed record BackendOperationError
 
 internal sealed record StorageResponse
 {
+    [JsonPropertyName("planning")] public PartitionPlanningResult? Planning { get; init; }
     [JsonPropertyName("status")] public required string Status { get; init; }
     [JsonPropertyName("inventory")] public StorageInventory? Inventory { get; init; }
     [JsonPropertyName("operation")] public DiskOperationOutcome? Operation { get; init; }

@@ -14,9 +14,9 @@ APFS volume allocation and shared container free space are separate measurements
 
 ## FFI boundary
 
-The ABI has three response-producing functions: legacy `diskvio_list_disks_json`, `diskvio_inventory_json`, and `diskvio_operation_json`. Each returns an owned, NUL-terminated UTF-8 JSON allocation or NULL on encoding failure. **Every non-NULL result must be freed exactly once with `diskvio_string_free`.** No pointers to internal Rust collections cross the boundary. Swift copies the response before a `defer` frees it.
+The ABI has four response-producing functions: legacy `diskvio_list_disks_json`, `diskvio_inventory_json`, `diskvio_operation_json` and the preview-only `diskvio_partition_plan_json`. Each returns an owned, NUL-terminated UTF-8 JSON allocation or NULL on encoding failure. **Every non-NULL result must be freed exactly once with `diskvio_string_free`.** No pointers to internal Rust collections cross the boundary. Swift copies the response before a `defer` frees it.
 
-Operation input is borrowed UTF-8 JSON with an explicit byte count capped at 16 KiB. The caller must provide a readable buffer for the duration of the call; Rust does not retain or modify it. Invalid JSON, unsupported action names, backend failures, and caught Rust panics produce errors. An invalid pointer or double-free violates the C contract and cannot be repaired by catching a Rust panic.
+Operation input is borrowed UTF-8 JSON with an explicit byte count capped at 16 KiB. The separate partition planning input allows up to 1 MiB for opaque layout snapshots. The caller must provide a readable buffer for the duration of the call; Rust does not retain or modify it. Invalid JSON, unsupported action names, backend failures, and caught Rust panics produce errors. An invalid pointer or double-free violates the C contract and cannot be repaired by catching a Rust panic.
 
 ## Threads and notifications
 
@@ -51,6 +51,8 @@ Each operation requires a toolbar, menu or contextual action and explicit confir
 The existing Xcode target uses `ENABLE_APP_SANDBOX = NO` and hardened runtime. This is a directly distributed disk utility deployment model; this change does not disable a previously enabled app sandbox. Inspection needs no administrator privileges. A future sandboxed/App Store distribution requires a separate capability and distribution design; file picker access alone is not a replacement for disk management. See Apple's [Disk Arbitration overview](https://developer.apple.com/library/archive/documentation/DriversKernelHardware/Conceptual/DiskArbitrationProgGuide/Introduction/Introduction.html).
 
 ## Limits
+
+The [Milestone 6A planning API](milestone-6a-partition-foundations.md) adds `diskvio_partition_plan_json` without changing existing exports or action values. Swift owns typed preview requests/results and copies/frees the response through `DiskService.partitionPlanning`. The inspector displays the backend's structured unsupported-platform result. Shared planning models compile on macOS, while allocation discovery and physical partition create/delete planning remain unsupported here. APFS free capacity is never treated as physical allocatable space.
 
 Windows has physical-disk, partition and volume inventory with validated mount/unmount, rename and drive-letter operations for supported external USB basic-data volumes. Windows physical eject remains unsupported. See [Milestone 2 backend](milestone-2-backend.md) for the shared JSON API and native verification limits. Other platforms return unsupported errors. Encrypted volumes must be unlocked in Disk Utility; Diskvio does not handle passwords. APFS snapshot management, CoreStorage/RAID topology, and destructive operations are outside these milestones. Partition-map gaps are not plotted or treated as allocatable storage. Diskutil may take up to a minute or longer for OS arbitration; the UI stays responsive and does not offer forced cancellation of an in-flight OS operation.
 

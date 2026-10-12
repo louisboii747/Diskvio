@@ -3,6 +3,13 @@ import Testing
 @testable import Diskvio
 
 struct DiskvioTests {
+    @Test func partitionPlanningFFIIsExplicitlyUnsupportedOnMacOS() throws {
+        let response = try DiskService.partitionPlanning(.discover(identifier: "disk2"))
+        #expect(response.previewOnly)
+        #expect(!response.executionSupported)
+        #expect(!response.validation.valid)
+        #expect(response.validation.issues.first?.code == "unsupported_platform")
+    }
     @Test func decodesDiskResponse() throws {
         let data = Data(#"{"status":"ok","disks":[{"number":0,"name":"Example SSD","size_bytes":500000000000,"bus_type":"PCI-Express","partition_style":"GUID_partition_scheme"}]}"#.utf8)
         let disks = try DiskService.decodeResponse(data)

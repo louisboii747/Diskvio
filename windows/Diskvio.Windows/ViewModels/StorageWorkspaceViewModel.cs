@@ -14,10 +14,12 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
     private string _error = "", _result = "", _warnings = "";
     private long _selectionVersion;
     private OperationCapabilities? _capabilities;
+    private string _partitionPlanningSummary = "Read the backend layout to inspect allocation boundaries and partition eligibility.";
     public StorageWorkspaceViewModel(IDiskService service)
     {
         _service = service;
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => !IsBusy);
+        InspectPartitionPlanningCommand = new AsyncRelayCommand(InspectPartitionPlanningAsync, () => CanInspectPartitionPlanning);
     }
     public ObservableCollection<StorageNode> Disks { get; } = [];
     public ObservableCollection<StorageNode> UnattachedVolumes { get; } = [];
@@ -25,6 +27,9 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
         ? disk.Children.SelectMany(part => new[] { part }.Concat(part.Children)).ToList() : [];
     public ObservableCollection<InspectorProperty> Properties { get; } = [];
     public IAsyncRelayCommand RefreshCommand { get; }
+    public IAsyncRelayCommand InspectPartitionPlanningCommand { get; }
+    public bool CanInspectPartitionPlanning => !IsBusy && SelectedDisk is not null && _service is IPartitionPlanningService;
+    public string PartitionPlanningSummary => _partitionPlanningSummary;
     public bool IsBusy => _busy;
     public bool CanInspect => !IsBusy;
     public bool IsEmpty => _loaded && !IsBusy && !HasError && Disks.Count == 0;
@@ -67,6 +72,7 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
             if (!SetProperty(ref _selectedNode, value)) return;
             _selectionVersion++;
             _capabilities = null;
+            _partitionPlanningSummary = "Read the backend layout to inspect allocation boundaries and partition eligibility.";
             BuildProperties();
             Notify();
         }
@@ -105,6 +111,41 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
             _error = e.Message;
             Notify();
         }
+    }
+
+    public async Task InspectPartitionPlanningAsync()
+    {
+        if (!CanInspectPartitionPlanning || SelectedDisk is not { } disk || _service is not IPartitionPlanningService planning) return;
+        var version = _selectionVersion;
+        SetBusy(true);
+        _partitionPlanningSummary = "Reading authoritative layout and safety metadata…";
+        OnPropertyChanged(nameof(PartitionPlanningSummary));
+        try
+        {
+            var response = await planning.PlanPartitionAsync(new DiscoverPartitionLayoutRequest { Identifier = disk.Device.Identifier });
+            if (version != _selectionVersion) return;
+            if (response.Discovery is { } discovery && discovery.Identifier != disk.Device.Identifier)
+                throw new DiskServiceException("The backend returned a different physical disk. Refresh and inspect again.");
+            var lines = new List<string> { "Preview only. Partition creation and deletion cannot execute." };
+            lines.Add(response.Validation.Valid ? "Layout and safety checks passed. Planning additionally requires designation of this exact disk as expendable test media." : "Planning is unavailable:");
+            lines.AddRange(response.Validation.Issues.Select(i => $"{i.Code}: {i.Message}"));
+            if (response.Discovery is { } layout)
+            {
+                foreach (var region in layout.Regions)
+                {
+                    lines.Add($"Region [{region.Identity.StartOffsetBytes:N0}, {region.Identity.EndOffsetBytes:N0}) bytes. Aligned capacity: {region.AlignedCapacityBytes:N0} bytes. Eligible capacity: {region.MaximumAllocatableBytes:N0} bytes. Alignment: {region.RequiredAlignmentBytes:N0} bytes. {(region.Validation.Valid ? "Eligible geometry" : "Unavailable")}");
+                    lines.AddRange(region.Validation.Issues.Where(i => !response.Validation.Issues.Contains(i)).Select(i => i.Message));
+                }
+                foreach (var partition in layout.Partitions)
+                    lines.Add($"Partition {partition.Partition.Number}: {(partition.Eligible ? "Eligible for a future deletion preview" : "Protected or unsupported")}. {partition.DataLossWarning}");
+            }
+            _partitionPlanningSummary = string.Join(Environment.NewLine + Environment.NewLine, lines);
+        }
+        catch (Exception error)
+        {
+            if (version == _selectionVersion) _partitionPlanningSummary = error.Message;
+        }
+        finally { SetBusy(false); }
     }
     public void SelectPartition(StoragePartition partition)
     {
@@ -184,13 +225,14 @@ public sealed class StorageWorkspaceViewModel : ObservableObject
         finally { SetBusy(false); }
         await QueryCapabilitiesAsync();
     }
-    private void SetBusy(bool value) { _busy = value; Notify(); RefreshCommand.NotifyCanExecuteChanged(); }
+    private void SetBusy(bool value) { _busy = value; Notify(); RefreshCommand.NotifyCanExecuteChanged(); InspectPartitionPlanningCommand.NotifyCanExecuteChanged(); }
     private void Notify()
     {
         foreach (var name in new[] { nameof(IsBusy), nameof(CanInspect), nameof(IsEmpty), nameof(HasError), nameof(ErrorMessage),
             nameof(HasResult), nameof(ResultMessage), nameof(HasWarnings), nameof(Warnings), nameof(HasSelection), nameof(SelectionName),
             nameof(SelectionSummary), nameof(DeviceCount), nameof(CanMount), nameof(CanUnmount), nameof(CanRename), nameof(CanSetDriveLetter),
-            nameof(ActionExplanation), nameof(Limitations), nameof(SelectionBadges), nameof(LabelMaxLength), nameof(HasDiskSelection), nameof(PartitionEmptyMessage) }) OnPropertyChanged(name);
+            nameof(ActionExplanation), nameof(Limitations), nameof(SelectionBadges), nameof(LabelMaxLength), nameof(HasDiskSelection), nameof(PartitionEmptyMessage), nameof(CanInspectPartitionPlanning), nameof(PartitionPlanningSummary) }) OnPropertyChanged(name);
+        InspectPartitionPlanningCommand.NotifyCanExecuteChanged();
     }
     private void BuildProperties()
     {

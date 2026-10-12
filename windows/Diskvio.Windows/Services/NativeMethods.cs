@@ -58,6 +58,16 @@ internal static class NativeMethods
         return OperationJson(request, (nuint)request.Length);
     }
 
+    internal static RustStringHandle PartitionPlan(byte[] request)
+    {
+        if (request.Length is 0 or > 1048576) throw new DiskServiceException("Partition planning requests must contain 1 to 1048576 UTF-8 bytes.");
+        _ = Library.Value;
+        return PartitionPlanJson(request, (nuint)request.Length);
+    }
+
+    [DllImport(LibraryName, EntryPoint = "diskvio_partition_plan_json", ExactSpelling = true, CallingConvention = CallingConvention.Cdecl)]
+    private static extern RustStringHandle PartitionPlanJson([In] byte[] request, nuint length);
+
     [DllImport(LibraryName, EntryPoint = "diskvio_inventory_json", ExactSpelling = true, CallingConvention = CallingConvention.Cdecl)]
     private static extern RustStringHandle InventoryJson();
 

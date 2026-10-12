@@ -23,6 +23,8 @@ char *diskvio_inventory_json(void);
 // against fresh metadata in Rust. Release the result with diskvio_string_free.
 char *diskvio_operation_json(const uint8_t *request, size_t length);
 
+char *diskvio_partition_plan_json(const uint8_t *request, size_t length);
+
 // Accepts NULL. Pass only a pointer returned by any Diskvio JSON function,
 // and release that pointer exactly once.
 void diskvio_string_free(char *pointer);
