@@ -52,12 +52,13 @@ struct DeviceWorkspaceView: View {
             }
         }
         .navigationTitle(store.selectedNode?.displayName ?? "Diskvio")
+        .task(id: store.partitionPlanningContext) { await store.inspectPartitionPlanning() }
     }
 
     private var inspectorContent: some View {
         Group {
             if let node = store.selectedNode {
-                DeviceInspector(node: node)
+                DeviceInspector(node: node, planning: store.planningPresentation)
             } else {
                 Text("Select a device to inspect its properties.")
                     .foregroundStyle(.secondary).padding()

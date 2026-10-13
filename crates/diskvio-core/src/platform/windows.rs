@@ -27,6 +27,8 @@ struct StorageInventory {
 
 #[derive(Clone, Serialize, Deserialize)]
 struct StorageDisk {
+    manufacturer: Option<String>,
+    model: Option<String>,
     number: u32,
     name: String,
     size_bytes: u64,
@@ -108,8 +110,6 @@ struct StorageVolume {
     operational_status: Vec<String>,
 }
 
-// PowerShell's ConvertTo-Json can emit MSFT_Disk.UniqueIdFormat as its
-// display name rather than the underlying VPD identifier type (0, 1, 2, 3, 8).
 fn deserialize_unique_id_format<'de, D>(deserializer: D) -> Result<Option<u16>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -321,6 +321,8 @@ fn parse_inventory(bytes: &[u8]) -> Result<DiskInventory, OperationError> {
             });
         }
         inventory.disks.push(PhysicalDisk {
+            manufacturer: nonempty(disk.manufacturer),
+            model: nonempty(disk.model),
             device: Device {
                 identifier: format!("PhysicalDrive{}", disk.number),
                 name: disk.name,
@@ -533,6 +535,27 @@ mod tests {
 
         input["disks"][0]["unique_id_format"] = "unknown format".into();
         assert!(serde_json::from_value::<StorageInventory>(input).is_err());
+    }
+
+    #[test]
+    fn hardware_presentation_metadata_is_optional_and_never_invented() {
+        let original = parse(fixture());
+        assert!(original.disks[1].manufacturer.is_none());
+        assert!(original.disks[1].model.is_none());
+        let mut value = fixture();
+        value["disks"][1]["manufacturer"] = "Example matériel".into();
+        value["disks"][1]["model"] = "USB model 42".into();
+        let inventory = parse(value.clone());
+        assert_eq!(
+            inventory.disks[1].manufacturer.as_deref(),
+            Some("Example matériel")
+        );
+        assert_eq!(inventory.disks[1].model.as_deref(), Some("USB model 42"));
+        value["disks"][1]["manufacturer"] = "  ".into();
+        value["disks"][1]["model"] = "".into();
+        let inventory = parse(value);
+        assert!(inventory.disks[1].manufacturer.is_none());
+        assert!(inventory.disks[1].model.is_none());
     }
 
     #[test]

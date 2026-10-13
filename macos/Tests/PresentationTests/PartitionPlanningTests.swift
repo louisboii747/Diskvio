@@ -81,5 +81,17 @@ struct PartitionPlanningTests {
         #expect(!result.validation.valid)
         #expect(result.validation.issues.first?.code == "unsupported_platform")
         #expect(result.validation.issues.first?.platformCode == 5)
+        let presentation = PartitionPlanningPresentation(result: result, error: nil)
+        #expect(presentation.title == "Partition planning is unavailable on macOS")
+        #expect(presentation.explanation.contains("not physical unallocated space"))
+        #expect(presentation.technicalDetails.contains("unsupported_platform"))
+    }
+
+    @Test func discoveryFailuresAndPendingQueriesAreDistinctFromUnsupported() {
+        let pending = PartitionPlanningPresentation(result: nil, error: nil)
+        #expect(pending.title.contains("Checking"))
+        let failed = PartitionPlanningPresentation(result: nil, error: "Disconnected")
+        #expect(failed.title == "Backend discovery failed")
+        #expect(failed.explanation == "Disconnected")
     }
 }

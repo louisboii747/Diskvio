@@ -113,7 +113,7 @@ public sealed class PartitionPlanningTests
             Assert.IsType<DiscoverPartitionLayoutRequest>(request);
             return Pending?.Task ?? Task.FromResult(DiskService.DecodePartitionPlanning(Fixture()));
         }
-        public Task<StorageInventory> InventoryAsync() => Task.FromResult(new StorageInventory { Disks = [new() { Device = new() { Identifier = "PhysicalDrive2", Name = "Test" }, Number = 2, PartitionScheme = "gpt", Partitions = [] }], ApfsContainers = [], Warnings = [] });
+        public Task<StorageInventory> InventoryAsync() => Task.FromResult(new StorageInventory { Disks = [new() { Device = new() { Identifier = "PhysicalDrive2", Name = "Test", SizeBytes = 104857600 }, Number = 2, PartitionScheme = "gpt", Partitions = [new() { Number = 1, OffsetBytes = 1048576, GptType = PartitionPlanInput.BasicDataType, Device = new() { Identifier = "PhysicalDrive2Partition1", Name = "Test", SizeBytes = 4194304, PartitionUuid = "00000001-1111-2222-3333-444444444444" } }] }], ApfsContainers = [], Warnings = [] });
         public Task<OperationCapabilities> SupportedOperationsAsync(string identifier) => Task.FromResult(new OperationCapabilities { Identifier = identifier, DeviceKind = "physical_disk", Actions = [] });
         public Task<DiskOperationOutcome> PerformAsync(DiskOperationRequest request) => throw new InvalidOperationException("Planning must not execute volume operations");
         public Task<OperationValidation> ValidateAsync(DiskOperationRequest request) => throw new InvalidOperationException("Planning has a separate validation contract");

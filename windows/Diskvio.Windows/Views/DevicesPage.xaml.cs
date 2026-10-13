@@ -13,6 +13,7 @@ namespace Diskvio.Windows.Views;
 public sealed partial class DevicesPage : Page
 {
     private bool _synchronizingSelection;
+    private bool _wasPlanningEditor;
     private readonly DispatcherTimer _monitor = new() { Interval = TimeSpan.FromSeconds(15) };
     public StorageWorkspaceViewModel ViewModel { get; } = new(new DiskService());
     public DevicesPage()
@@ -20,7 +21,17 @@ public sealed partial class DevicesPage : Page
         InitializeComponent(); DataContext = ViewModel;
         ViewModel.PropertyChanged += OnStateChanged;
         Map.PartitionSelected += async partition => { ViewModel.SelectPartition(partition); await ViewModel.QueryCapabilitiesAsync(); };
-        _monitor.Tick += async (_, _) => { if (!ViewModel.IsBusy) await ViewModel.RefreshAsync(); };
+        Map.RegionSelected += ViewModel.SelectRegion;
+        Map.TargetContextRequested += (segment, element) =>
+        {
+            if (ViewModel.IsBusy) return;
+            if (segment.Partition is { } partition) ViewModel.SelectPartition(partition);
+            else if (segment.Region is { } region) ViewModel.SelectRegion(region);
+            var menu = new MenuFlyout();
+            AddPlanningItems(menu);
+            menu.ShowAt(element);
+        };
+        _monitor.Tick += async (_, _) => await ViewModel.RefreshAsync();
         SizeChanged += (_, args) =>
         {
             var compact = args.NewSize.Width < 850;
@@ -38,14 +49,19 @@ public sealed partial class DevicesPage : Page
         };
     }
     private async void OnLoaded(object sender, RoutedEventArgs args) { await ViewModel.RefreshAsync(); _monitor.Start(); }
-    private void OnUnloaded(object sender, RoutedEventArgs args) => _monitor.Stop();
+    private void OnUnloaded(object sender, RoutedEventArgs args) { _monitor.Stop(); ViewModel.CancelPartitionPreview(); ViewModel.RevokeTestDiskDesignation(); }
     private void OnStateChanged(object? sender, PropertyChangedEventArgs args)
     {
-        if (args.PropertyName is nameof(ViewModel.Layout) or nameof(ViewModel.SelectedNode))
+        if (args.PropertyName == nameof(ViewModel.IsPlanningEditor))
         {
-            Map.Update(ViewModel.Layout, ViewModel.SelectedNode?.Partition?.Device.Identifier);
+            if (ViewModel.IsPlanningEditor && !_wasPlanningEditor) PlanningWorkspace.StartBringIntoView();
+            _wasPlanningEditor = ViewModel.IsPlanningEditor;
+        }
+        if (args.PropertyName is nameof(ViewModel.Layout) or nameof(ViewModel.SelectedNode) or nameof(ViewModel.Children))
+        {
+            Map.Update(ViewModel.Layout, ViewModel.SelectedMapId);
             _synchronizingSelection = true;
-            try { ChildList.SelectedItem = ViewModel.Children.FirstOrDefault(n => n.Device.Identifier == ViewModel.SelectedNode?.Device.Identifier); }
+            try { ChildList.SelectedItem = (ChildList.ItemsSource as IEnumerable<StorageNode>)?.FirstOrDefault(n => n.Device.Identifier == ViewModel.SelectedNode?.Device.Identifier); }
             finally { _synchronizingSelection = false; }
         }
     }
@@ -79,6 +95,7 @@ public sealed partial class DevicesPage : Page
         await ViewModel.QueryCapabilitiesAsync();
         if (ViewModel.IsBusy || ViewModel.SelectedNode != node) return;
         var menu = new MenuFlyout();
+        AddPlanningItems(menu);
         void Add(string text, bool enabled, RoutedEventHandler handler)
         {
             var item = new MenuFlyoutItem { Text = text, IsEnabled = enabled };
@@ -96,6 +113,27 @@ public sealed partial class DevicesPage : Page
         Add("Copy technical identifier", true, (_, _) => { var data = new DataPackage(); data.SetText(node.Device.Identifier); Clipboard.SetContent(data); });
         Add("Refresh disks", !ViewModel.IsBusy, async (_, _) => await ViewModel.RefreshAsync());
         menu.ShowAt(element, positioned ? new FlyoutShowOptions { Position = position } : new FlyoutShowOptions());
+    }
+
+    private void AddPlanningItems(MenuFlyout menu)
+    {
+        var inspect = new MenuFlyoutItem { Text = "Inspect partition layout", Command = ViewModel.InspectPartitionPlanningCommand };
+        menu.Items.Add(inspect);
+        if (ViewModel.SelectedNode?.Region is not null)
+        {
+            var create = new MenuFlyoutItem { Text = "Create partition preview", IsEnabled = ViewModel.CanBeginCreatePreview };
+            create.Click += (_, _) => ViewModel.BeginCreatePreview();
+            ToolTipService.SetToolTip(create, ViewModel.RegionSummary);
+            menu.Items.Add(create);
+        }
+        if (ViewModel.SelectedNode?.Partition is not null)
+        {
+            var delete = new MenuFlyoutItem { Text = "Inspect deletion preview", IsEnabled = ViewModel.CanBeginDeletePreview };
+            delete.Click += (_, _) => ViewModel.BeginDeletePreview();
+            ToolTipService.SetToolTip(delete, "Preview only. Protected targets remain ineligible.");
+            menu.Items.Add(delete);
+        }
+        menu.Items.Add(new MenuFlyoutSeparator());
     }
 
     private async Task<OperationInput?> ConfirmChangeAsync(StorageNode node, DiskAction action)

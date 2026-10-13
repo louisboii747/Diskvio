@@ -42,6 +42,11 @@ struct DeviceDetailView: View {
                         .accessibilityLabel("Storage used")
                         .accessibilityValue(Capacity.string(used))
                 }
+                if !node.disk.partitions.isEmpty {
+                    PartitionMapView(disk: node.disk, selectedIdentifier: node.physicalPartitionIdentifier ?? node.device.identifier, store: store) { identifier in
+                        store.selectPartition(identifier: identifier, diskIdentifier: node.disk.device.identifier)
+                    }
+                }
                 if node.kind == .volume {
                     Text("APFS volumes share the container’s free space. Used space reflects this volume’s allocation; snapshots and container metadata can consume additional space.")
                         .font(.callout).foregroundStyle(.secondary)
@@ -60,16 +65,27 @@ struct DeviceDetailView: View {
                     Label("Internal disks are available for inspection only.", systemImage: "lock.shield")
                         .font(.callout).foregroundStyle(.secondary)
                 }
+                if node.kind == .disk {
+                    VStack(alignment: .leading, spacing: 8) {
+                        LabeledContent("Physical disk", value: "Disk \(node.disk.number) · \(node.disk.device.identifier)")
+                        LabeledContent("Partition map", value: node.disk.schemeName)
+                        LabeledContent("Connection", value: node.disk.connectionType ?? "Not available")
+                        LabeledContent("Partitions", value: String(node.disk.partitions.count))
+                        LabeledContent("Read-only", value: node.disk.device.safety?.readOnly.map { $0 ? "Yes" : "No" } ?? "Unknown")
+                    }.font(.callout).textSelection(.enabled)
+                } else {
+                    Button { store.selectPhysicalDisk() } label: {
+                        Label("Inspect physical disk \(node.disk.number)", systemImage: "externaldrive")
+                    }.help("Select the parent disk in the sidebar and inspector")
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Label(store.planningPresentation.title, systemImage: "rectangle.split.3x1")
+                        .font(.callout)
+                    Text(store.planningPresentation.explanation).font(.caption).foregroundStyle(.secondary)
+                }
                 Divider()
                 DeviceManagementView(node: node, store: store)
                 Divider()
-                if !node.disk.partitions.isEmpty {
-                    PartitionMapView(disk: node.disk, selectedIdentifier: node.physicalPartitionIdentifier ?? node.device.identifier, store: store) { identifier in
-                        store.selection = store.nodes.flatMap(\.flattened).first {
-                            $0.disk.device.identifier == node.disk.device.identifier && $0.device.identifier == identifier
-                        }?.id
-                    }
-                }
                 if let children = node.children {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(childHeading).font(.headline)

@@ -44,6 +44,7 @@ struct PartitionMapView: View {
                                 .help(tooltip(segment))
                                 .accessibilityLabel(tooltip(segment))
                                 .accessibilityAddTraits(selectedIdentifier == segment.id ? .isSelected : [])
+                                .onMoveCommand { direction in moveSelection(direction) }
                                 .contextMenu { contextMenu(segment) }
                             }
                         }.padding(.vertical, 2)
@@ -94,6 +95,12 @@ struct PartitionMapView: View {
                 Text(type.rawValue).font(.caption).foregroundStyle(.secondary)
             }
         }
+    }
+    private func moveSelection(_ direction: MoveCommandDirection) {
+        guard direction == .left || direction == .right,
+              let current = layout.segments.firstIndex(where: { $0.id == selectedIdentifier }) else { return }
+        let next = direction == .left ? max(0, current - 1) : min(layout.segments.count - 1, current + 1)
+        select(layout.segments[next].id)
     }
     private func category(_ segment: PartitionMapSegment) -> PartitionCategory { PartitionPresentation(partition: segment.partition).category }
     private func tooltip(_ segment: PartitionMapSegment) -> String {

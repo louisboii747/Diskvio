@@ -4,7 +4,9 @@
 
 ## Platform
 
-Native macOS for this frontend and milestone scope. The Rust workspace is cross-platform; Windows currently provides basic physical disk discovery. This is not an iOS or web frontend.
+adaptive
+
+Native macOS SwiftUI and Windows WinUI 3 frontends over a shared Rust workspace. Windows supports preview-only partition planning; macOS reports planning as unsupported.
 
 ## Product Purpose
 
@@ -12,7 +14,7 @@ Inspect real connected physical disks and their partition/filesystem topology, t
 
 ## Operating Context
 
-The macOS app is built and run through Xcode at `macos/Diskvio/Diskvio.xcodeproj`. The existing workspace contains `diskvio-core`, `diskvio-cli`, and `diskvio-ffi`, connected to SwiftUI through a C ABI. The native frontend must remain SwiftUI. Existing working CLI behavior and Windows discovery must be preserved.
+The macOS app builds through Xcode at `macos/Diskvio/Diskvio.xcodeproj`; Windows builds through the Visual Studio 2026 WinUI solution. `diskvio-core`, `diskvio-cli` and `diskvio-ffi` provide shared backend contracts through a stable C ABI. Preserve native controls, existing CLI behavior and supported volume operations on both platforms.
 
 ## Capabilities and Constraints
 

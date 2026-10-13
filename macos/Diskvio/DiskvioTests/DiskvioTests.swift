@@ -45,6 +45,65 @@ private nonisolated let operationFixture = topologyFixture
     )
 
 struct ExplorerTests {
+    @Test @MainActor func physicalPartitionSelectionSharesSidebarAndInspectorState() async throws {
+        let fixture = try DiskService.decodeInventory(Data(topologyFixture.utf8))
+        let store = DiskStore(loadInventory: { fixture })
+        await store.refresh()
+        store.selection = store.nodes.flatMap(\.flattened).last?.id
+        store.selectPartition(identifier: "disk2s1", diskIdentifier: "disk2")
+        #expect(store.selectedNode?.kind == .partition)
+        #expect(store.selectedNode?.physicalPartitionIdentifier == "disk2s1")
+        let selected = store.selection
+        store.selectPartition(identifier: "missing", diskIdentifier: "disk2")
+        #expect(store.selection == selected)
+        store.selectPhysicalDisk()
+        #expect(store.selectedNode?.kind == .disk)
+    }
+
+    @Test @MainActor func planningStatusClearsOnSelectionRefreshAndRemoval() async throws {
+        let fixture = try DiskService.decodeInventory(Data(topologyFixture.utf8))
+        let store = DiskStore(loadInventory: { fixture })
+        await store.refresh()
+        await store.inspectPartitionPlanning()
+        #expect(store.planningPresentation.title == "Partition planning is unavailable on macOS")
+        store.selectPartition(identifier: "disk2s1", diskIdentifier: "disk2")
+        #expect(store.partitionPlanning == nil)
+        await store.inspectPartitionPlanning()
+        let context = store.partitionPlanningContext
+        await store.refresh()
+        #expect(store.partitionPlanning == nil)
+        #expect(store.partitionPlanningContext != context)
+        await store.inspectPartitionPlanning()
+        store.receive(DiskEvent(kind: .disappeared, identifier: "disk2", wholeIdentifier: "disk2", physicalCandidate: true))
+        #expect(store.partitionPlanning == nil)
+        #expect(store.selectedNode == nil)
+        store.stopMonitoring()
+    }
+
+    @Test @MainActor func latePlanningResponseCannotOverwriteAnotherSelection() async throws {
+        let fixture = try DiskService.decodeInventory(Data(topologyFixture.utf8))
+        let entered = Mutex(false)
+        let release = DispatchSemaphore(value: 0)
+        let store = DiskStore(loadInventory: { fixture }, loadPartitionPlanning: { request in
+            entered.withLock { $0 = true }
+            guard release.wait(timeout: .now() + 5) == .success else { throw DiskServiceError.invalidResponse }
+            return try DiskService.partitionPlanning(request)
+        })
+        await store.refresh()
+        let query = Task { await store.inspectPartitionPlanning() }
+        for _ in 0..<100 {
+            if entered.withLock({ $0 }) { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(entered.withLock { $0 })
+        store.selectPartition(identifier: "disk2s1", diskIdentifier: "disk2")
+        release.signal()
+        await query.value
+        #expect(store.partitionPlanning == nil)
+        #expect(store.partitionPlanningError == nil)
+        #expect(store.selectedNode?.kind == .partition)
+    }
+
     @Test func topologyDoesNotTreatAPFSVolumesAsPartitions() throws {
         let inventory = try DiskService.decodeInventory(Data(topologyFixture.utf8))
         #expect(inventory.disks[0].partitions.count == 1)

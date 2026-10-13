@@ -58,6 +58,10 @@ pub struct DeviceSafety {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PhysicalDisk {
+    #[serde(default)]
+    pub manufacturer: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
     pub device: Device,
     pub number: u32,
     pub partition_scheme: PartitionScheme,

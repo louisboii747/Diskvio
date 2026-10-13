@@ -4,7 +4,12 @@ import Foundation
 @MainActor
 final class DiskStore: ObservableObject {
     @Published private(set) var inventory = DiskInventory()
-    @Published var selection: String?
+    @Published var selection: String? {
+        didSet { if oldValue != selection { invalidatePartitionPlanning() } }
+    }
+    @Published private(set) var inventoryRevision: UInt64 = 0
+    @Published private(set) var partitionPlanning: PartitionPlanningResult?
+    @Published private(set) var partitionPlanningError: String?
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var lastUpdated: Date?
@@ -19,15 +24,19 @@ final class DiskStore: ObservableObject {
     private let runOperation: @Sendable (OperationRequest) throws -> OperationOutcome
     private let loadCapabilities: @Sendable (String) throws -> OperationCapabilities
     private let validateOperation: @Sendable (OperationRequest) throws -> OperationValidation
+    private let loadPartitionPlanning: @Sendable (PartitionPlanningRequest) throws -> PartitionPlanningResult
+    private var planningGeneration: UInt64 = 0
 
     init(loadInventory: @escaping @Sendable () throws -> DiskInventory = { try DiskService.inventory() },
          runOperation: @escaping @Sendable (OperationRequest) throws -> OperationOutcome = { try DiskService.perform($0) },
          loadCapabilities: @escaping @Sendable (String) throws -> OperationCapabilities = { try DiskService.supportedOperations(identifier: $0) },
-         validateOperation: @escaping @Sendable (OperationRequest) throws -> OperationValidation = { try DiskService.validate($0) }) {
+         validateOperation: @escaping @Sendable (OperationRequest) throws -> OperationValidation = { try DiskService.validate($0) },
+         loadPartitionPlanning: @escaping @Sendable (PartitionPlanningRequest) throws -> PartitionPlanningResult = { try DiskService.partitionPlanning($0) }) {
         self.loadInventory = loadInventory
         self.runOperation = runOperation
         self.loadCapabilities = loadCapabilities
         self.validateOperation = validateOperation
+        self.loadPartitionPlanning = loadPartitionPlanning
     }
 
     private var monitor: DiskMonitor?
@@ -40,6 +49,50 @@ final class DiskStore: ObservableObject {
     var nodes: [DeviceNode] { inventory.nodes }
     var selectedNode: DeviceNode? { nodes.flatMap(\.flattened).first { $0.id == selection } }
     var isBusy: Bool { isLoading || operationInProgress != nil }
+    var partitionPlanningContext: PartitionPlanningContext {
+        PartitionPlanningContext(selection: selection, diskIdentifier: selectedNode?.disk.device.identifier,
+                                 identityToken: selectedNode?.disk.device.identityToken, revision: inventoryRevision)
+    }
+    var planningPresentation: PartitionPlanningPresentation {
+        PartitionPlanningPresentation(result: partitionPlanning, error: partitionPlanningError)
+    }
+
+    private func invalidatePartitionPlanning() {
+        planningGeneration &+= 1
+        partitionPlanning = nil
+        partitionPlanningError = nil
+    }
+
+    func inspectPartitionPlanning() async {
+        invalidatePartitionPlanning()
+        guard let node = selectedNode, !isLoading else { return }
+        let context = partitionPlanningContext
+        let version = planningGeneration
+        let loader = loadPartitionPlanning
+        do {
+            let result = try await Task.detached(priority: .userInitiated) {
+                try loader(.discover(identifier: node.disk.device.identifier))
+            }.value
+            guard !Task.isCancelled, version == planningGeneration, context == partitionPlanningContext else { return }
+            partitionPlanning = result
+        } catch {
+            guard !Task.isCancelled, version == planningGeneration, context == partitionPlanningContext else { return }
+            partitionPlanningError = error.localizedDescription
+        }
+    }
+
+    func selectPartition(identifier: String, diskIdentifier: String) {
+        guard let target = nodes.flatMap(\.flattened).first(where: {
+            $0.kind == .partition && $0.disk.device.identifier == diskIdentifier && $0.device.identifier == identifier
+        }) else { return }
+        selection = target.id
+    }
+
+    func selectPhysicalDisk() {
+        guard let diskIdentifier = selectedNode?.disk.device.identifier,
+              let disk = nodes.first(where: { $0.device.identifier == diskIdentifier }) else { return }
+        selection = disk.id
+    }
     var selectedUSBNode: DeviceNode? {
         guard let node = selectedNode,
               node.disk.internal == false,
@@ -102,6 +155,7 @@ final class DiskStore: ObservableObject {
     }
 
     func refresh() async {
+        invalidatePartitionPlanning()
         guard !isBusy else { needsRefresh = true; return }
         refreshTask?.cancel()
         refreshTask = nil
@@ -125,6 +179,7 @@ final class DiskStore: ObservableObject {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+        inventoryRevision &+= 1
         if needsRefresh { scheduleRefresh() }
     }
 
@@ -194,6 +249,8 @@ final class DiskStore: ObservableObject {
         }
         guard relevant else { return }
         generation &+= 1
+        invalidatePartitionPlanning()
+        inventoryRevision &+= 1
         if event.kind == .disappeared {
             let removedStoreIDs = Set(inventory.disks.filter { $0.device.identifier == event.identifier }
                 .flatMap { [$0.device.identifier] + $0.partitions.map { $0.device.identifier } })

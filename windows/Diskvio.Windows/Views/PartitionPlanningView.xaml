@@ -1,0 +1,61 @@
+<UserControl x:Class="Diskvio.Windows.Views.PartitionPlanningView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Diskvio.Windows.Controls"
+    xmlns:converters="using:Diskvio.Windows.Converters">
+  <UserControl.Resources><converters:BooleanToVisibilityConverter x:Key="Visible" /></UserControl.Resources>
+  <StackPanel Spacing="12">
+    <TextBlock Text="Partition planning" Style="{ThemeResource SubtitleTextBlockStyle}" />
+    <TextBlock Text="Preview only. Diskvio will not create, delete or format partitions." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+    <TextBlock Text="{Binding PlanningStatus}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+    <TextBlock Text="{Binding PartitionPlanningSummary}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+    <Button Content="Inspect backend layout" Command="{Binding InspectPartitionPlanningCommand}" ToolTipService.ToolTip="Read authoritative GPT regions and safety restrictions without changing storage" />
+    <TextBlock Text="{Binding UnallocatedSummary}" TextWrapping="Wrap" />
+    <Expander Header="Session test media" HorizontalAlignment="Stretch">
+      <StackPanel Spacing="12">
+        <TextBlock Text="{Binding PlanningDiskIdentity}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+        <TextBlock Text="{Binding TestDiskStatus}" TextWrapping="Wrap" />
+        <TextBlock Text="Only backend-eligible, positively identified external USB removable test media can be designated. System, protected, internal and unverified disks remain blocked." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Button Content="Designate expendable test media…" IsEnabled="{Binding CanDesignateTestDisk}" Click="OnDesignate" />
+        <Button Content="Clear designation" IsEnabled="{Binding IsTestDiskDesignated}" Click="OnRevoke" />
+      </StackPanel>
+    </Expander>
+    <Grid ColumnSpacing="12">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+      <Button Content="Create partition preview" IsEnabled="{Binding CanBeginCreatePreview}" Click="OnCreate" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Select an eligible unallocated region from the backend layout" />
+      <Button Grid.Column="1" Content="Deletion preview" IsEnabled="{Binding CanBeginDeletePreview}" Click="OnDelete" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Inspect the selected partition's deletion eligibility and data-loss warning" />
+    </Grid>
+    <StackPanel Spacing="12" Visibility="{Binding IsPlanningEditor, Converter={StaticResource Visible}}">
+      <TextBlock Text="{Binding PlanningDiskIdentity}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+      <StackPanel Spacing="12" Visibility="{Binding IsCreateEditor, Converter={StaticResource Visible}}">
+        <TextBlock Text="{Binding RegionSummary}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+        <Grid ColumnSpacing="12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
+          <TextBox Header="Requested partition size" Text="{Binding RequestedSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanInspect}" InputScope="Number" MaxLength="128" ToolTipService.ToolTip="Exact MiB or GiB. Use a decimal point without grouping separators. Rust validates minimum size, alignment and capacity. Values are never rounded." />
+          <ComboBox Grid.Column="1" Header="Unit" SelectedItem="{Binding SizeUnit, Mode=TwoWay}" IsEnabled="{Binding CanInspect}" HorizontalAlignment="Stretch"><x:String>MiB</x:String><x:String>GiB</x:String></ComboBox>
+        </Grid>
+        <TextBox Header="Starting offset in bytes (optional)" Text="{Binding RequestedStart, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanInspect}" InputScope="Number" MaxLength="128" PlaceholderText="First aligned position from backend" />
+        <TextBlock Text="Type: GPT Microsoft basic data. Minimum size and alignment: 1 MiB. No filesystem will be selected or created." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <TextBlock Text="Changes request a new Rust preview after a short pause. Remaining capacity appears only after backend validation." TextWrapping="Wrap" Style="{ThemeResource CaptionTextBlockStyle}" />
+      </StackPanel>
+      <StackPanel Spacing="12" Visibility="{Binding IsDeleteEditor, Converter={StaticResource Visible}}">
+        <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Data-loss warning" Message="{Binding DeletionWarning}" />
+        <TextBlock Text="{Binding DeletionSummary}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+      </StackPanel>
+      <TextBlock Text="{Binding TestDiskStatus}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Preview" IsEnabled="{Binding CanRequestPartitionPreview}" Click="OnPreview" />
+        <Button Content="Reset" IsEnabled="{Binding CanInspect}" Click="OnReset" />
+        <Button Content="Cancel" Click="OnCancel" />
+      </StackPanel>
+      <TextBlock Text="{Binding PreviewDetails}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+      <StackPanel Spacing="8" Visibility="{Binding HasValidatedPreview, Converter={StaticResource Visible}}">
+        <TextBlock Text="Before · current disk" FontWeight="SemiBold" />
+        <controls:PartitionMap x:Name="BeforeMap" IsHitTestVisible="False" />
+        <TextBlock Text="After · preview only" FontWeight="SemiBold" />
+        <controls:PartitionMap x:Name="AfterMap" IsHitTestVisible="False" />
+        <TextBlock Text="Proposed segments are labelled preview. Nothing has been applied. Partition execution is unavailable." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

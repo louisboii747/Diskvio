@@ -13,6 +13,19 @@ private func inventory(_ json: String = fixture) throws -> DiskInventory {
 }
 
 struct PresentationTests {
+    @Test func storagePresentationKeepsExactBoundsAndUnknownProtectionHonest() throws {
+        let data = try inventory()
+        let partition = try #require(data.nodes.flatMap(\.flattened).first { $0.kind == .partition })
+        #expect(StoragePresentation(node: partition).partitionBounds == "Not available")
+        #expect(StoragePresentation(node: partition).exactCapacity == "1 bytes")
+        let internalDisk = try inventory(fixture.replacingOccurrences(of: "\"internal\":false", with: "\"internal\":true"))
+        #expect(StoragePresentation(node: internalDisk.nodes[0]).protectionExplanation.contains("inspection only"))
+        let unknown = try inventory(fixture.replacingOccurrences(of: "\"internal\":false,", with: ""))
+        #expect(StoragePresentation(node: unknown.nodes[0]).protectionExplanation.contains("unknown"))
+        let withOffset = try inventory(fixture.replacingOccurrences(of: "\"number\":1,\"content_type\"", with: "\"offset_bytes\":100,\"number\":1,\"content_type\""))
+        let physical = try #require(withOffset.nodes.flatMap(\.flattened).first { $0.kind == .partition })
+        #expect(StoragePresentation(node: physical).partitionBounds.contains("100, 101"))
+    }
     @Test func actionGatingRequiresBackendCapabilityAndIdentity() throws {
         let volume = try #require(inventory().nodes.flatMap(\.flattened).last)
         #expect(volume.operationTarget(for: .renameVolume)?.id == volume.id)

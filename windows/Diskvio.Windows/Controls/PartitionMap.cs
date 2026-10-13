@@ -9,6 +9,9 @@ namespace Diskvio.Windows.Controls;
 public sealed class PartitionMap : UserControl
 {
     public event Action<StoragePartition>? PartitionSelected;
+    public event Action<AllocatableRegion>? RegionSelected;
+    public event Action<PartitionSegment, FrameworkElement>? TargetContextRequested;
+    public bool IsPreview { get; set; }
     private readonly Canvas _canvas = new() { Height = 84 };
     private PartitionLayout? _layout;
     private string? _selectedId;
@@ -36,7 +39,7 @@ public sealed class PartitionMap : UserControl
             var width = widths[i];
             var categoryBrush = (Brush)Application.Current.Resources[BrushKey(segment.Category)];
             FrameworkElement element;
-            if (segment.Partition is { } partition)
+            if (segment.Partition is not null || segment.Region is not null || segment.Proposal is not null)
             {
                 var content = new Grid { RowSpacing = 8, HorizontalAlignment = HorizontalAlignment.Stretch };
                 content.RowDefinitions.Add(new() { Height = new GridLength(5) });
@@ -46,16 +49,53 @@ public sealed class PartitionMap : UserControl
                 {
                     var labels = new StackPanel { Spacing = 3, Margin = new Thickness(6, 0, 6, 0) };
                     labels.Children.Add(new TextBlock { Text = segment.Label, TextTrimming = TextTrimming.CharacterEllipsis, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-                    labels.Children.Add(new TextBlock { Text = Disk.FormatCapacity(segment.Length), FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis });
+                    labels.Children.Add(new TextBlock { Text = $"{Disk.FormatCapacity(segment.Length)} · {segment.KindLabel}", FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis });
+                    if (segment.Partition is { } existing)
+                    {
+                        var mounts = string.Join(", ", existing.Volumes.Select(v => v.Device.DriveLetter is { } letter ? $"{letter}:" : v.Device.MountPoint).Where(m => !string.IsNullOrWhiteSpace(m)));
+                        labels.Children.Add(new TextBlock { Text = $"{PartitionPresentation.Filesystems(existing)} {mounts}".Trim(), FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis });
+                    }
                     Grid.SetRow(labels, 1); content.Children.Add(labels);
                 }
-                var button = new Button { Content = content, Tag = partition.Device.Identifier, Width = Math.Max(1, width - 2), Height = 84,
+                else
+                {
+                    var label = new TextBlock { Text = segment.Partition?.Number?.ToString(System.Globalization.CultureInfo.CurrentCulture) ?? (segment.Region is not null ? "Free" : "Plan"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                    Grid.SetRow(label, 1); content.Children.Add(label);
+                }
+                var button = new Button { Content = content, Tag = segment.SelectionId, Width = Math.Max(1, width - 2), Height = 84,
                     Padding = new Thickness(4), MinWidth = 0, HorizontalContentAlignment = HorizontalAlignment.Stretch,
                     VerticalContentAlignment = VerticalAlignment.Stretch,
-                    BorderThickness = new Thickness(_selectedId == partition.Device.Identifier ? 2 : 1),
-                    BorderBrush = (Brush)Application.Current.Resources[_selectedId == partition.Device.Identifier ? "SystemControlHighlightAccentBrush" : "ControlStrokeColorDefaultBrush"] };
-                AutomationProperties.SetHelpText(button, "Select to inspect this partition. Small partitions have a minimum visual width.");
-                button.Click += (_, _) => PartitionSelected?.Invoke(partition);
+                    BorderThickness = new Thickness(!IsPreview && _selectedId == segment.SelectionId ? 2 : 1),
+                    BorderBrush = (Brush)Application.Current.Resources[!IsPreview && _selectedId == segment.SelectionId ? "SystemControlHighlightAccentBrush" : "ControlStrokeColorDefaultBrush"] };
+                AutomationProperties.SetHelpText(button, IsPreview ? "Read-only proposed layout. Nothing has been applied." : "Select to inspect this partition or region. Use arrow keys to move focus and Enter or Space to select. Small targets have a minimum visual width.");
+                button.Click += (_, _) =>
+                {
+                    if (IsPreview) return;
+                    if (segment.Partition is { } partition) PartitionSelected?.Invoke(partition);
+                    else if (segment.Region is { } region) RegionSelected?.Invoke(region);
+                };
+                button.IsTabStop = !IsPreview;
+                button.ContextRequested += (_, args) =>
+                {
+                    if (IsPreview) return;
+                    args.Handled = true;
+                    TargetContextRequested?.Invoke(segment, button);
+                };
+                button.KeyDown += (_, args) =>
+                {
+                    if (args.Key is not (global::Windows.System.VirtualKey.Left or global::Windows.System.VirtualKey.Right or global::Windows.System.VirtualKey.Home or global::Windows.System.VirtualKey.End)) return;
+                    var buttons = _canvas.Children.OfType<Button>().ToList();
+                    var index = buttons.IndexOf(button);
+                    var next = args.Key switch
+                    {
+                        global::Windows.System.VirtualKey.Home => 0,
+                        global::Windows.System.VirtualKey.End => buttons.Count - 1,
+                        global::Windows.System.VirtualKey.Left => Math.Max(0, index - 1),
+                        _ => Math.Min(buttons.Count - 1, index + 1)
+                    };
+                    buttons[next].Focus(FocusState.Keyboard);
+                    args.Handled = true;
+                };
                 element = button;
             }
             else element = new Border { Width = Math.Max(1, width - 1), Height = 84, Background = categoryBrush, CornerRadius = new CornerRadius(3) };
@@ -70,6 +110,7 @@ public sealed class PartitionMap : UserControl
     {
         "efi_system" => "PartitionSystemBrush", "recovery" => "PartitionRecoveryBrush",
         "microsoft_reserved" => "PartitionReservedBrush", "basic_data" => "PartitionDataBrush",
+        "proposal" => "SystemControlHighlightAccentBrush", "unallocated" => "PartitionReservedBrush",
         "unmapped" => "PartitionUnmappedBrush", _ => "PartitionUnknownBrush"
     };
 }

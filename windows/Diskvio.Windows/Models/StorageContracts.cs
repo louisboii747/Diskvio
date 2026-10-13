@@ -24,6 +24,8 @@ public sealed record StorageInventory
 
 public sealed record StorageDisk
 {
+    [JsonPropertyName("manufacturer")] public string? Manufacturer { get; init; }
+    [JsonPropertyName("model")] public string? Model { get; init; }
     [JsonPropertyName("device")] public required StorageDevice Device { get; init; }
     [JsonPropertyName("number")] public required uint Number { get; init; }
     [JsonPropertyName("partition_scheme")] public required string PartitionScheme { get; init; }

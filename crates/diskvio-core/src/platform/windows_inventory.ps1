@@ -131,6 +131,8 @@ $disks = @(Get-Disk -ErrorAction Stop | Sort-Object Number | ForEach-Object {
     [PSCustomObject]@{
         number = [uint32]$d.Number
         name = [string]$d.FriendlyName
+        manufacturer = [string]$d.Manufacturer
+        model = [string]$d.Model
         size_bytes = [uint64]$d.Size
         bus_type = [string]$d.BusType
         partition_style = [string]$d.PartitionStyle

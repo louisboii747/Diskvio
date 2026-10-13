@@ -2,8 +2,7 @@ import SwiftUI
 
 struct DeviceInspector: View {
     let node: DeviceNode
-    @State private var partitionPlanning: PartitionPlanningResult?
-    @State private var partitionPlanningError: String?
+    let planning: PartitionPlanningPresentation
 
     var body: some View {
         Form {
@@ -14,24 +13,30 @@ struct DeviceInspector: View {
                 PropertyRow(title: "Volume label", value: node.device.volumeLabel)
                 PropertyRow(title: "Media name", value: node.device.mediaName ?? node.disk.device.mediaName)
                 PropertyRow(title: node.kind == .volume ? node.capacityLabel : "Total capacity", value: Capacity.string(node.device.sizeBytes))
+                PropertyRow(title: "Exact capacity", value: StoragePresentation(node: node).exactCapacity)
                 PropertyRow(title: "Filesystem", value: node.device.filesystem?.name)
                 if let partition = node.partition {
                     PropertyRow(title: "Partition number", value: partition.number.map(String.init))
                     PropertyRow(title: "Partition role", value: PartitionPresentation(partition: partition).typeName)
                     PropertyRow(title: "Partition type", value: node.contentType)
                     PropertyRow(title: "Offset", value: partition.offsetBytes.map { "\($0) bytes" })
+                    PropertyRow(title: "Physical bounds (exclusive end)", value: StoragePresentation(node: node).partitionBounds)
                 }
                 PropertyRow(title: "Health / SMART", value: node.device.healthStatus)
                 if let status = node.device.operationalStatus, !status.isEmpty {
                     PropertyRow(title: "Status", value: status.joined(separator: ", "))
                 }
                 PropertyRow(title: "Partition scheme", value: node.disk.schemeName)
+                PropertyRow(title: "Physical disk", value: "Disk \(node.disk.number) · \(node.disk.device.identifier)")
+                PropertyRow(title: "Partition count", value: String(node.disk.partitions.count))
                 PropertyRow(title: "Connection", value: node.disk.connectionType)
                 PropertyRow(title: "Location", value: node.disk.internal.map { $0 ? "Internal" : "External" })
                 PropertyRow(title: "Removable media", value: yesNo(node.disk.removable))
                 PropertyRow(title: "Ejectable", value: yesNo(node.disk.ejectable))
             }
             Section("Protection") {
+                Text(StoragePresentation(node: node).protectionExplanation)
+                    .font(.callout).foregroundStyle(.secondary)
                 PropertyRow(title: "System", value: yesNo(node.device.safety?.system))
                 PropertyRow(title: "Boot", value: yesNo(node.device.safety?.boot))
                 PropertyRow(title: "Recovery", value: yesNo(node.device.safety?.recovery))
@@ -41,15 +46,12 @@ struct DeviceInspector: View {
                 PropertyRow(title: "APFS roles", value: node.volume?.roles.joined(separator: ", "))
             }
             Section("Partition planning") {
-                Text("Preview only. Partition creation and deletion cannot execute.")
-                    .font(.caption).foregroundStyle(.secondary)
-                if let partitionPlanning {
-                    ForEach(Array(partitionPlanning.validation.issues.enumerated()), id: \.offset) { _, issue in
-                        PropertyRow(title: issue.code.replacingOccurrences(of: "_", with: " "), value: issue.message)
+                Text(planning.title).font(.callout)
+                Text(planning.explanation).font(.caption).foregroundStyle(.secondary)
+                if !planning.technicalDetails.isEmpty {
+                    DisclosureGroup("Backend details") {
+                        Text(planning.technicalDetails).font(.caption).textSelection(.enabled)
                     }
-                } else {
-                    Text(partitionPlanningError ?? "Checking backend support…")
-                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
             Section("Advanced Identity") {
@@ -81,21 +83,6 @@ struct DeviceInspector: View {
             }
         }
         .formStyle(.grouped)
-        .task(id: node.disk.device.stableID ?? node.disk.device.identifier) {
-            partitionPlanning = nil
-            partitionPlanningError = nil
-            let identifier = node.disk.device.identifier
-            do {
-                let result = try await Task.detached {
-                    try DiskService.partitionPlanning(.discover(identifier: identifier))
-                }.value
-                guard !Task.isCancelled else { return }
-                partitionPlanning = result
-            } catch {
-                guard !Task.isCancelled else { return }
-                partitionPlanningError = error.localizedDescription
-            }
-        }
     }
 
     private func yesNo(_ value: Bool?) -> String? { value.map { $0 ? "Yes" : "No" } }
