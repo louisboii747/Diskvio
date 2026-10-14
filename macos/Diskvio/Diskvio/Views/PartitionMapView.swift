@@ -5,107 +5,141 @@ struct PartitionMapView: View {
     let selectedIdentifier: String
     @ObservedObject var store: DiskStore
     let select: (String) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var sort = PartitionSort.position
+    @FocusState private var focusedSegment: String?
     private var layout: PartitionMapLayout { PartitionMapLayout(disk: disk) }
+    private var sortedSegments: [PartitionMapSegment] {
+        layout.segments.sorted { first, second in
+            switch sort {
+            case .position: first.index < second.index
+            case .name: first.title.localizedStandardCompare(second.title) == .orderedAscending
+            case .capacity: (first.partition.device.sizeBytes ?? 0) > (second.partition.device.sizeBytes ?? 0)
+            }
+        }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Physical Partitions").font(.headline)
+                Text("Partition layout").font(.headline)
                 Spacer()
-                Text(disk.schemeName).font(.caption).foregroundStyle(.secondary)
+                Text("\(disk.partitions.count) \(disk.partitions.count == 1 ? "partition" : "partitions")")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             if layout.segments.isEmpty {
-                Text("No physical partitions reported.").foregroundStyle(.secondary)
+                Label("No physical partitions were reported for this disk.", systemImage: "rectangle.dashed")
+                    .foregroundStyle(.secondary).padding(.vertical, 16)
             } else {
                 GeometryReader { geometry in
                     let widths = layout.visualWidths(availableWidth: Double(geometry.size.width))
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 4) {
-                            ForEach(Array(layout.segments.enumerated()), id: \.element.id) { index, segment in
-                                Button { select(segment.id) } label: {
-                                    VStack(alignment: .leading, spacing: 5) {
-                                        if widths[index] >= 100 {
-                                            Text(segment.title).font(.caption).fontWeight(.medium).lineLimit(1)
-                                            Text(Capacity.string(segment.partition.device.sizeBytes)).font(.caption2).lineLimit(1)
-                                        } else {
-                                            Text(segment.partition.number.map { "\($0)" } ?? "\(index + 1)").font(.caption).fontWeight(.semibold)
-                                        }
-                                    }
-                                    .padding(8)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                                    .background(category(segment).color.opacity(0.2))
-                                    .overlay(alignment: .top) { Rectangle().fill(category(segment).color).frame(height: 4) }
-                                    .clipShape(RoundedRectangle(cornerRadius: 5))
-                                    .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(selectedIdentifier == segment.id ? Color.accentColor : Color.secondary.opacity(0.25), lineWidth: selectedIdentifier == segment.id ? 2 : 1) }
-                                    .contentShape(Rectangle())
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal) {
+                            HStack(spacing: 4) {
+                                ForEach(Array(layout.segments.enumerated()), id: \.element.id) { index, segment in
+                                    PartitionSegmentButton(segment: segment, width: widths[index],
+                                                           selected: selectedIdentifier == segment.id) { select(segment.id) }
+                                        .id(segment.id)
+                                        .focused($focusedSegment, equals: segment.id)
+                                        .help(tooltip(segment))
+                                        .accessibilityLabel(tooltip(segment))
+                                        .accessibilityAddTraits(selectedIdentifier == segment.id ? .isSelected : [])
+                                        .onMoveCommand { moveSelection($0, from: segment.id) }
+                                        .contextMenu { contextMenu(segment) }
                                 }
-                                .buttonStyle(.plain)
-                                .frame(width: CGFloat(widths[index]), height: 64)
-                                .help(tooltip(segment))
-                                .accessibilityLabel(tooltip(segment))
-                                .accessibilityAddTraits(selectedIdentifier == segment.id ? .isSelected : [])
-                                .onMoveCommand { direction in moveSelection(direction) }
-                                .contextMenu { contextMenu(segment) }
-                            }
-                        }.padding(.vertical, 2)
-                    }
-                }.frame(height: 84)
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 14) { legend }
-                    VStack(alignment: .leading, spacing: 6) { legend }
-                }
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 0) {
-                    GridRow { Text("Partition"); Text("Format"); Text("Capacity") }
-                        .font(.caption).foregroundStyle(.secondary).padding(.bottom, 6)
-                    ForEach(layout.segments) { segment in
-                        GridRow {
-                            Button { select(segment.id) } label: {
-                                HStack(spacing: 8) {
-                                    Circle().fill(category(segment).color).frame(width: 8, height: 8).accessibilityHidden(true)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(segment.title).fontWeight(.medium).lineLimit(2).multilineTextAlignment(.leading)
-                                        Text(segment.partition.device.mountPoint ?? segment.id).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                                    }.frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .padding(8)
-                                .background(selectedIdentifier == segment.id ? Color.accentColor.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 5))
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .help(tooltip(segment))
-                            .accessibilityLabel(tooltip(segment))
-                            .accessibilityAddTraits(selectedIdentifier == segment.id ? .isSelected : [])
-                            .contextMenu { contextMenu(segment) }
-                            Text(segment.partition.device.filesystem?.name ?? PartitionPresentation(partition: segment.partition).typeName ?? "Unknown")
-                                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                            Text(Capacity.string(segment.partition.device.sizeBytes)).font(.callout).monospacedDigit().gridColumnAlignment(.trailing)
+                            }.padding(.vertical, 3)
+                        }
+                        .onChange(of: focusedSegment) { _, identifier in
+                            if let identifier { proxy.scrollTo(identifier, anchor: .center) }
+                        }
+                        .onChange(of: selectedIdentifier) { _, identifier in
+                            if layout.segments.contains(where: { $0.id == identifier }) { proxy.scrollTo(identifier, anchor: .center) }
                         }
                     }
+                }.frame(height: 112)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 14) { legend }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), alignment: .leading)], alignment: .leading) { legend }
                 }
-                Text("Widths compare reported partition capacities, with a minimum size for small partitions. Gaps and unallocated regions are not plotted. APFS volumes share their physical store.")
+                Text("Small partitions are widened for selection. Sizes are exact; gaps are not plotted. APFS volumes share their physical store.")
                     .font(.caption).foregroundStyle(.secondary)
+                Divider().padding(.vertical, 2)
+                HStack {
+                    Text("Partitions").font(.headline)
+                    Spacer()
+                    Picker("Sort partitions", selection: $sort) {
+                        ForEach(PartitionSort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }.labelsHidden().fixedSize().controlSize(.small)
+                }
+                HStack {
+                    Text("Name / identifier").frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Format").frame(width: 90, alignment: .leading)
+                    Text("Capacity").frame(width: 85, alignment: .trailing)
+                }
+                .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 10)
+                VStack(spacing: 2) {
+                    ForEach(sortedSegments) { segment in
+                        partitionRow(segment)
+                    }
+                }
             }
         }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: selectedIdentifier)
     }
 
     private var legend: some View {
-        ForEach(PartitionCategory.allCases.filter { type in layout.segments.contains { category($0) == type } }, id: \.self) { type in
-            HStack(spacing: 5) {
-                Circle().fill(type.color).frame(width: 7, height: 7).accessibilityHidden(true)
-                Text(type.rawValue).font(.caption).foregroundStyle(.secondary)
-            }
+        ForEach(PartitionTone.allCases.filter { tone in layout.segments.contains { PartitionTone.tone(for: $0.partition) == tone } }, id: \.self) { tone in
+            Label { Text(tone.rawValue) } icon: {
+                Circle().fill(tone.color).frame(width: 7, height: 7)
+            }.font(.caption).foregroundStyle(.secondary)
         }
     }
-    private func moveSelection(_ direction: MoveCommandDirection) {
-        guard direction == .left || direction == .right,
-              let current = layout.segments.firstIndex(where: { $0.id == selectedIdentifier }) else { return }
+
+    private func partitionRow(_ segment: PartitionMapSegment) -> some View {
+        Button { select(segment.id) } label: {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 2).fill(PartitionTone.tone(for: segment.partition).color)
+                    .frame(width: 8, height: 24).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(segment.title).fontWeight(.medium).lineLimit(1)
+                    Text(segment.partition.device.mountPoint ?? segment.id)
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    if let used = segment.partition.device.usedBytes, let available = segment.partition.device.availableBytes {
+                        Text("\(Capacity.string(used)) used · \(Capacity.string(available)) available")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                Text(segment.partition.device.filesystem?.name ?? PartitionPresentation(partition: segment.partition).typeName ?? "Not reported")
+                    .font(.caption).foregroundStyle(.secondary).frame(width: 90, alignment: .leading)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(Capacity.string(segment.partition.device.sizeBytes)).monospacedDigit()
+                    if selectedIdentifier == segment.id {
+                        Label("Selected", systemImage: "checkmark").font(.caption2).foregroundStyle(Color.accentColor)
+                    }
+                }.frame(width: 85, alignment: .trailing)
+            }
+            .padding(10).contentShape(Rectangle())
+        }
+        .buttonStyle(PartitionRowStyle(selected: selectedIdentifier == segment.id))
+        .help(tooltip(segment))
+        .accessibilityLabel(tooltip(segment))
+        .accessibilityAddTraits(selectedIdentifier == segment.id ? .isSelected : [])
+        .contextMenu { contextMenu(segment) }
+    }
+
+    private func moveSelection(_ direction: MoveCommandDirection, from identifier: String) {
+        guard direction == .left || direction == .right else { return }
+        let current = layout.segments.firstIndex { $0.id == (focusedSegment ?? identifier) } ?? 0
         let next = direction == .left ? max(0, current - 1) : min(layout.segments.count - 1, current + 1)
+        focusedSegment = layout.segments[next].id
         select(layout.segments[next].id)
     }
-    private func category(_ segment: PartitionMapSegment) -> PartitionCategory { PartitionPresentation(partition: segment.partition).category }
+
     private func tooltip(_ segment: PartitionMapSegment) -> String {
-        "\(segment.title) · \(category(segment).rawValue)\n\(Capacity.string(segment.partition.device.sizeBytes)) · \(segment.partition.device.filesystem?.name ?? "Filesystem not reported")\n\(segment.id)\(segment.partition.device.mountPoint.map { " · \($0)" } ?? "")"
+        let device = segment.partition.device
+        return "\(segment.title) · \(PartitionPresentation(partition: segment.partition).category.rawValue)\n\(Capacity.string(device.sizeBytes))\(device.sizeBytes.map { " (\($0.formatted()) bytes)" } ?? "")\n\(device.filesystem?.name ?? "Filesystem not reported") · \(segment.id)\(device.mountPoint.map { "\n\($0)" } ?? "")"
     }
+
     @ViewBuilder private func contextMenu(_ segment: PartitionMapSegment) -> some View {
         if let node = store.nodes.flatMap(\.flattened).first(where: { $0.disk.device.identifier == disk.device.identifier && $0.device.identifier == segment.id }) {
             DeviceContextMenu(node: node, store: store)
@@ -113,14 +147,69 @@ struct PartitionMapView: View {
     }
 }
 
-private extension PartitionCategory {
+private enum PartitionSort: String, CaseIterable {
+    case position = "Physical order", name = "Name", capacity = "Largest first"
+}
+
+private struct PartitionSegmentButton: View {
+    let segment: PartitionMapSegment
+    let width: Double
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovered = false
+    private var tone: Color { PartitionTone.tone(for: segment.partition).color }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                if width >= 110 {
+                    HStack(spacing: 4) {
+                        Text(segment.title).fontWeight(.semibold).lineLimit(1)
+                        if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor) }
+                    }
+                    Text(segment.partition.device.filesystem?.name ?? PartitionPresentation(partition: segment.partition).typeName ?? "Not reported")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Text(Capacity.string(segment.partition.device.sizeBytes)).font(.callout).monospacedDigit().lineLimit(1)
+                } else {
+                    Text(segment.partition.number.map(String.init) ?? "•").fontWeight(.semibold)
+                    if selected { Image(systemName: "checkmark").font(.caption).foregroundStyle(Color.accentColor) }
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(tone.opacity(hovered ? 0.16 : 0.09))
+            .overlay(alignment: .top) { Rectangle().fill(tone).frame(height: 4) }
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? Color.accentColor : Color.secondary.opacity(0.25), lineWidth: selected ? 2 : 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).frame(width: CGFloat(width), height: 96)
+        .onHover { hovered = $0 }
+    }
+}
+
+private struct PartitionRowStyle: ButtonStyle {
+    let selected: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(selected ? Color.accentColor.opacity(0.12) : configuration.isPressed ? Color.secondary.opacity(0.08) : .clear,
+                        in: RoundedRectangle(cornerRadius: 6))
+            .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? Color.accentColor.opacity(0.6) : .clear) }
+    }
+}
+
+extension PartitionTone {
     var color: Color {
         switch self {
-        case .system: .orange
-        case .recovery: .green
-        case .metadata: .gray
-        case .data: .blue
-        case .unknown: Color(nsColor: .secondaryLabelColor)
+        case .ntfs, .other: .blue
+        case .apfs: .purple
+        case .fat, .recovery: .green
+        case .exfat: .teal
+        case .ext, .system: .orange
+        case .metadata, .unknown: .gray
         }
     }
 }

@@ -110,3 +110,43 @@ struct PresentationTests {
         #expect(legacy.limitations == nil)
     }
 }
+
+struct DeviceBrowserTests {
+    @Test func searchFindsNestedVolumesAndKeepsTheirPhysicalDisk() throws {
+        let root = try #require(inventory().nodes.first)
+        #expect(root.matches("photos"))
+        #expect(!root.matchesSelf("photos"))
+        #expect(root.flattened.filter { $0.matchesSelf("photos") }.map(\.displayName) == ["Photos"])
+        #expect(root.matches(" /Volumes/Photos "))
+        #expect(root.matches("disk3s1"))
+        #expect(!root.matches("unconnected device"))
+        #expect(DeviceGroup.group(for: root.disk) == .removable)
+        #expect(DeviceFilter.externalDrives.includes(root.disk))
+        #expect(!DeviceFilter.internalDrives.includes(root.disk))
+    }
+
+    @Test func ordinaryPartitionWidthsRemainProportional() throws {
+        let value = fixture.replacingOccurrences(of: "\"size_bytes\":1}", with: "\"size_bytes\":250}")
+            .replacingOccurrences(of: "\"size_bytes\":999,\"partition_uuid\"", with: "\"size_bytes\":750,\"partition_uuid\"")
+        let layout = PartitionMapLayout(disk: try inventory(value).disks[0])
+        let widths = layout.visualWidths(availableWidth: 804)
+        #expect(widths == [200, 600])
+    }
+
+    @Test(arguments: [("NTFS", "ntfs", PartitionTone.ntfs), ("APFS", "apfs", .apfs),
+                      ("FAT32", "fat", .fat), ("ExFAT", "exfat", .exfat), ("ext4", "other", .ext),
+                      ("New filesystem", "other", .other)])
+    func filesystemPaletteUsesReportedFormat(name: String, kind: String, tone: PartitionTone) throws {
+        let value = try partition("{\"device\":{\"identifier\":\"disk2s1\",\"name\":\"APFS archive\",\"filesystem\":{\"name\":\"\(name)\",\"kind\":\"\(kind)\"}}}")
+        #expect(PartitionTone.tone(for: value) == tone)
+    }
+
+    @Test func missingLocationAndStatusAreNotInferredFromName() throws {
+        let value = fixture.replacingOccurrences(of: "\"internal\":false,", with: "")
+            .replacingOccurrences(of: "\"removable\":true,", with: "")
+        let disk = try #require(inventory(value).nodes.first)
+        #expect(DeviceGroup.group(for: disk.disk) == .other)
+        #expect(disk.reportedStatus == "Status not reported")
+        #expect(disk.connectionDescription.contains("Location unknown"))
+    }
+}

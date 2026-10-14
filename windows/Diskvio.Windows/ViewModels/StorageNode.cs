@@ -6,7 +6,15 @@ public sealed record StorageNode(StorageDevice Device, string Kind, StorageDisk?
     public string Name => Kind == "Partition" && Partition is { } p ? PartitionPresentation.Name(p)
         : Kind == "Volume" ? PartitionPresentation.VolumeName(Volume, Device) : string.IsNullOrWhiteSpace(Device.Name) ? $"Disk {Disk?.Number}" : Device.Name;
     public string Capacity => Device.SizeBytes is { } bytes ? Models.Disk.FormatCapacity(bytes) : "Not reported";
+    public ulong? UsedBytes => Device.UsedBytes ?? (Partition?.Volumes.Count == 1 ? Partition.Volumes[0].Device.UsedBytes : null);
+    public ulong? AvailableBytes => Device.AvailableBytes ?? (Partition?.Volumes.Count == 1 ? Partition.Volumes[0].Device.AvailableBytes : null);
+    public string Used => UsedBytes is { } bytes ? Models.Disk.FormatCapacity(bytes) : "Not reported";
+    public string Available => AvailableBytes is { } bytes ? Models.Disk.FormatCapacity(bytes) : "Not reported";
+    public string ExactCapacity => Device.SizeBytes is { } bytes ? $"{bytes:N0} bytes" : "Capacity not reported";
+    public string GroupName => Disk?.Internal == true ? "Internal" : Disk?.Removable == true ? "Removable" : Disk?.Internal == false ? "External" : "Other devices";
+    public string ReportedStatus => Device.Safety.Offline is { } offline ? offline ? "Offline" : "Online" : !string.IsNullOrEmpty(Status) ? Status : !string.IsNullOrEmpty(Health) ? Health : "Status not reported";
     public string Summary => Kind == "Physical disk" ? $"Disk {Disk?.Number} · {Capacity} · {Disk?.ConnectionType ?? "Connection not reported"}" : $"{Kind} · {Capacity} · {Filesystem}";
+    public string BrowserSummary => Kind == "Physical disk" ? Summary : $"{Kind} · {Capacity}\n{Disk?.Device.Name ?? "Disk association unavailable"}";
     public string Filesystem => Region is not null ? "Not applicable" : Kind == "Partition" && Partition is { } p ? Empty(PartitionPresentation.Filesystems(p), "Not reported") : Device.Filesystem?.Name ?? "Not reported";
     public string Location => Region is not null ? "No volume" : Kind == "Partition" && Partition is { } p ? Empty(string.Join(", ", p.Volumes.Select(v => v.Device.DriveLetter is { } l ? $"{l}:" : v.Device.MountPoint).Where(s => !string.IsNullOrWhiteSpace(s))), "—") : Device.DriveLetter is { } letter ? $"{letter}:" : Device.MountPoint ?? "—";
     public double Indent => Kind == "Volume" && Partition is not null ? 20 : 0;
@@ -30,7 +38,7 @@ public sealed record StorageNode(StorageDevice Device, string Kind, StorageDisk?
     }
     private static string Empty(string value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;
     public override string ToString() => AccessibleName;
-    public string AccessibleName => $"{Name}, {Summary}, {Location}, {Badges}, {Device.Identifier}";
+    public string AccessibleName => $"{Name}, {Summary}, {Location}, {Badges}, {Device.Identifier}, {ExactCapacity}, used {Used}, available {Available}";
     public string Icon => Kind == "Volume" ? "\uE8B7" : Disk?.ConnectionType?.Equals("USB", StringComparison.OrdinalIgnoreCase) == true ? "\uE88E" : "\uEDA2";
     public string MountLocation => Device.MountPoints.Count > 0 ? string.Join(", ", Device.MountPoints) : Device.MountPoint ?? "Not mounted";
     public IReadOnlyList<StorageNode> Children => Kind == "Physical disk" && Disk is not null

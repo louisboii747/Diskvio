@@ -1,158 +1,195 @@
 ---
 name: Diskvio
-description: Native macOS storage inspection with a restrained functional hierarchy.
-spacing:
-  compact: 2
-  metadata: 3
-  summary: 5
-  inline: 8
-  related: 10
-  inset: 12
-  section: 24
+description: Native SwiftUI and WinUI storage inspection with truthful metadata.
+colors:
+  windows-ntfs-light: "#2463AB"
+  windows-ntfs-dark: "#8BBBF0"
+  windows-apfs-light: "#7653AD"
+  windows-apfs-dark: "#C2A2EF"
+  windows-fat-light: "#247442"
+  windows-fat-dark: "#8BD1A3"
+  windows-exfat-light: "#147D83"
+  windows-exfat-dark: "#83CED0"
+  windows-ext-light: "#956519"
+  windows-ext-dark: "#E5BF7A"
+  windows-system-light: "#986000"
+  windows-system-dark: "#E8B45D"
+  windows-recovery-light: "#247442"
+  windows-recovery-dark: "#73C991"
+  windows-reserved-light: "#757575"
+  windows-reserved-dark: "#ADADAD"
+  windows-data-light: "#2463AB"
+  windows-data-dark: "#74B5F4"
+  windows-unknown-light: "#595959"
+  windows-unknown-dark: "#858585"
+  windows-unmapped-light: "#303030"
+  windows-unmapped-dark: "#121212"
+typography:
+  windows-title:
+    fontSize: "24px"
+    fontWeight: 600
+  windows-summary:
+    fontSize: "20px"
+    fontWeight: 600
+  windows-section:
+    fontSize: "16px"
+    fontWeight: 600
+  windows-property:
+    fontSize: "14px"
+  windows-map-caption:
+    fontSize: "12px"
 rounded:
-  partition-map: "5px"
+  marker: "2px"
+  windows-gap: "3px"
+  badge: "4px"
+  macos-surface: "6px"
+spacing:
+  tight: "4px"
+  compact: "6px"
+  inline: "8px"
+  row: "10px"
+  inset: "12px"
+  related: "14px"
+  heading: "16px"
+  property: "20px"
+  section: "24px"
 components:
+  macos-search:
+    rounded: "{rounded.macos-surface}"
+    padding: "7px"
+  macos-badge:
+    rounded: "{rounded.badge}"
+    padding: "4px 8px"
+  macos-partition:
+    rounded: "{rounded.macos-surface}"
+    padding: "{spacing.row}"
+    height: "96px"
+  macos-partition-row:
+    rounded: "{rounded.macos-surface}"
+    padding: "{spacing.row}"
+  windows-partition:
+    padding: "{spacing.tight}"
+    height: "102px"
+  windows-explorer-row:
+    rounded: "{rounded.badge}"
   detail-content:
     padding: "{spacing.section}"
-  notice:
-    padding: "{spacing.inset}"
-  partition-map:
-    rounded: "{rounded.partition-map}"
-    height: "64px"
-  partition-legend-marker:
-    size: "8px"
 ---
 
 # Design System: Diskvio
 
 ## Overview
 
-**Creative North Star: "Native macOS Utility"**
+**Creative North Star: "Native Storage Utility"**
 
-Diskvio uses familiar macOS controls to make storage relationships legible. Its identity comes from clear hierarchy, real metadata, consistent spacing, and restrained emphasis. System typography, SF Symbols, and native selection and focus treatments keep the interface at home on macOS.
+Diskvio makes real disks, partitions and volumes legible through native platform controls. Its identity is the Diskvio name and supplied app artwork, system typography, clear information hierarchy and restrained emphasis. macOS uses SwiftUI and SF Symbols; Windows uses WinUI 3, Fluent controls and native icon glyphs.
 
-The application is a working utility with concise labels, readable properties, and enough separation to distinguish devices, capacity summaries, and supporting explanations. Light and dark appearance follow platform semantics. This document records the implemented SwiftUI system; it does not certify untested runtime states.
+The working surface is dense enough for inspection and calm enough to compare metadata. Native selection, focus, menus and semantic surfaces carry interaction. Filesystem color helps identify partitions, while exact text and backend metadata remain authoritative. This document records implemented design; runtime validation is scoped in [the redesign report](docs/native-ui-redesign.md).
 
 **Key Characteristics:**
 
-- Native SwiftUI navigation, lists, forms, toolbars, and context menus.
-- Semantic text hierarchy and appearance-aware platform colors.
-- Flat surfaces with structural dividers and restrained tonal emphasis.
-- SF Symbols and text labels that explain storage relationships.
-- Resizable panes and scrollable detail content.
+- Native controls and semantic light/dark appearance on both platforms.
+- Grouped device browsing with search, filters and visible parent-disk association.
+- Flat detail surfaces, structural dividers and a separate information inspector.
+- Filesystem-aware partition maps synchronized with selectable rows.
+- Explicit unavailable metadata, loading, errors and device-disconnection feedback.
 
 ## Colors
 
-The palette uses macOS semantic surfaces and foregrounds, with system hues reserved for the physical partition map.
-
 ### Primary
 
-Native controls own accent, selection, hover, focus, and disabled appearance. The source does not establish a custom brand accent; the AccentColor asset contains no color value.
+There is no custom brand accent. SwiftUI uses `Color.accentColor`; WinUI uses `SystemControlHighlightAccentBrush`. Native controls own ordinary hover, focus, pressed and disabled treatments. The macOS AccentColor asset does not establish a fixed color.
 
 ### Secondary
 
-**Partition categories** use native orange for system/EFI, green for recovery, grey for reserved/metadata, blue for data/APFS stores, and the native secondary-label tone for unknown types. Categories derive from reported role/content and protection metadata. Names and a legend accompany colours; selected segments receive a two-point accent border. Tinted fills retain semantic text foregrounds. Colour does not establish whether an operation is safe; backend capabilities do.
+Filesystem colors are categorical aids. On macOS, NTFS and other data use `.blue`, APFS uses `.purple`, FAT and recovery use `.green`, exFAT uses `.teal`, ext and system use `.orange`, and metadata or unknown types use `.gray`. The map uses a solid category strip, a low-opacity category fill, a legend and text. Reported filesystem metadata determines the tone before the reported partition category fallback.
+
+Windows category values in the frontmatter come directly from the Light and Default dictionaries in `windows/Diskvio.Windows/App.xaml`. Each key maps to its corresponding `PartitionNTFSBrush`, `PartitionAPFSBrush`, `PartitionFATBrush`, `PartitionExFATBrush`, `PartitionExtBrush`, `PartitionSystemBrush`, `PartitionRecoveryBrush`, `PartitionReservedBrush`, `PartitionDataBrush`, `PartitionUnknownBrush` or `PartitionUnmappedBrush`. HighContrast maps category brushes to `SystemColorWindowTextColor` and unmapped space to `SystemColorWindowColor`. Ambiguous filesystem combinations fall back to the reported partition category.
 
 ### Neutral
 
-- **Default foreground:** native text and primary values.
-- **Secondary foreground:** metadata, captions, explanations, and supporting symbols.
-- **Tertiary foreground:** child-row disclosure chevrons.
-- **Quaternary fill:** notices and restrained metadata badges.
-- **Text background:** `NSColor.textBackgroundColor` behind the central detail view.
+macOS uses inherited primary text, `.secondary`, `.tertiary`, `.quaternary` and `NSColor.textBackgroundColor`. WinUI uses inherited foregrounds plus `TextFillColorSecondaryBrush`, `SubtleFillColorSecondaryBrush`, `DividerStrokeColorDefaultBrush` and `ControlStrokeColorDefaultBrush`. Mica is requested only when the platform supports it. No fixed CSS substitutes or synthesized tonal ramps are normative for these dynamic native values; the sidecar records their source mappings.
 
-These dynamic native values cannot be represented faithfully by static CSS color tokens. Their exact SwiftUI/AppKit mappings live in `.impeccable/design.json`; no fixed hexadecimal substitutes or synthesized tonal ramps are normative.
-
-**The Platform Appearance Rule.** Use the existing semantic platform colors and native control states so appearance follows macOS.
+**The Platform Appearance Rule.** Use semantic native values for surfaces, text and control states; keep explicit category colors in their existing platform theme resources.
 
 ## Typography
 
-**System Font:** SwiftUI's default macOS system typography. SF Symbols provide interface icons; there are no custom fonts or interface glyph assets. The application icon uses the supplied artwork in `assets/`.
+SwiftUI keeps semantic system styles: the selection title uses `.title2.weight(.semibold)`, capacities use `.title3.weight(.medium)` with `.monospacedDigit()`, section titles use `.headline`, supporting text uses `.callout`, and metadata uses `.caption` or `.caption2`. Body text inherits the platform style. The overview symbol is an icon measurement, not a text style.
 
-### Hierarchy
-
-- **Selection title:** `.title2` with `.semibold`, used for the selected device name.
-- **Capacity value:** `.title3` with `.monospacedDigit()`, used for summary figures.
-- **Section heading:** `.headline`, used for child lists and the physical partition map.
-- **Body:** the inherited system text style, used for names, identifiers, and inspector values.
-- **Supporting copy:** `.callout`, used for storage explanations, map labels, and status details.
-- **Metadata label:** `.caption` with a secondary foreground, used for capacity labels, properties, row metadata, and update information.
-- **Row emphasis:** `.medium` weight for child-device names and notice titles.
-
-Semantic text styles remain semantic; this system does not replace them with inferred point sizes, line heights, tracking, or a fixed type-scale ratio. The selected-device symbol has an explicit icon size, documented separately from text roles in the sidecar. Capacity figures use tabular digits without switching the whole interface to a monospaced face.
+WinUI keeps its native font family and control typography. Explicit title, summary, section, property and map-caption measurements appear in the frontmatter; caption labels use `CaptionTextBlockStyle`. Names are medium or semibold where needed. Long inspector values wrap and support selection or copying. There are no custom font files, fixed line-height scales or tracking tokens.
 
 **The Metadata Hierarchy Rule.** Keep names and values primary, and use secondary captions for their labels and context.
 
 ## Layout
 
-The native split-view model separates navigation from the active working area. `ContentView` owns the `NavigationSplitView`, with `DeviceSidebar` as navigation and `DeviceWorkspaceView` as the working area. The workspace owns its toolbar, status regions, detail, and inspector. `WorkspaceLayout` holds the shared pane budget. The detail scrolls vertically, fills available width, and uses a leading alignment. The inspector uses a native grouped `Form`.
+Dimensions in the frontmatter use CSS-compatible notation for tooling; in the app they are SwiftUI points or WinUI effective pixels. The spacing scale captures recurring values, not a universal grid.
 
-The spacing tokens above are unitless native point values. CSS-compatible dimensions in the frontmatter represent the same logical measurements for documentation previews; the sidecar records their SwiftUI point mappings. Use compact gaps for stacked metadata, the inline and related gaps for associated content, the inset for status and notice regions, and the section gap for central content and capacity groups. There is no universal eight-point grid in the source.
+macOS uses `NavigationSplitView`, a sidebar-style list, a scrolling detail and an optional inspector in `HSplitView`. The window minimum is 900 by 600, with a default of 1280 by 780. Sidebar minimum, ideal and maximum widths are 240, 280 and 400. Central content retains a minimum width of 440. Inspector widths are 240, 280 and 340. It fits inline when the working area is at least 760 wide; otherwise the Inspector command opens the same content in a popover. Capacity summaries and legends adapt their columns to available width.
 
-The implemented pane limits, minimum window size, and default window size are recorded in the sidecar as macOS layout metrics. The main content keeps its minimum width. When the workspace can accommodate both panes, an `HSplitView` presents the optional inspector inline; at narrower widths the same Inspector command opens properties in a popover. Capacity summaries and partition legends use adaptive grids so their text remains useful as the detail width changes.
+Windows starts at 1280 by 780. Its sidebar starts at 264 and resizes between 220 and 380, additionally constrained by the remaining workspace. An eight-unit Thumb supports dragging and Left/Right keyboard resizing in sixteen-unit steps. Below a page width of 900, navigation moves above the detail in a 200-unit row. The 280-unit inspector sits beside content when page width minus the current sidebar width is at least 920; otherwise it follows content below a divider. The partitions-and-volumes table retains a 720-unit minimum and scrolls horizontally.
 
-**The Content Width Rule.** Preserve the central workspace's minimum width and move properties to the inspector popover when the inline pane budget does not fit.
-
-Retain resize affordances, the inspector command, and scrollable detail content. The refinement was observed in the smallest allowed native window, at both sidebar limits, in a maximized window, and with the narrow inspector popover. Final compact-caption and selected-foreground changes compiled and passed tests; their screenshot recapture was blocked by native automation failure. Enlarged-text, dark-appearance, and VoiceOver runtime validation remain outstanding; observed resizing does not certify all accessibility states.
+**The Content Width Rule.** Preserve readable content and inspectable targets through native pane resizing, adaptive inspector placement and scrolling.
 
 ## Elevation & Depth
 
-Custom surfaces are flat. The app defines no custom shadow or blur tokens. Native split-view separators, `Divider`, grouped-form containment, and semantic backgrounds establish depth. Notices use a quaternary fill; the central detail uses the platform text background. System controls retain their own platform appearance.
+Custom working surfaces are flat and define no shadow tokens. Native split-view separators, grouped forms, theme dividers and semantic backgrounds establish containment. macOS notices and badges use quaternary fill. Windows retains native control depth and an optional Mica window backdrop. Do not apply custom shadows to turn overview groups into decorative cards.
 
 ## Shapes
 
-Native controls own their corners and borders. The custom physical map clips its rectangular segments to the documented partition-map radius. Its legend uses circular markers, and clickable child rows use rectangular content shapes. The map's radius is a signature-component measurement, not a global corner rule for buttons, forms, or notices.
+Native controls retain their native corners and borders. Custom macOS search, partition segments and selected rows share the documented gently curved surface radius; badges use the smaller radius. Map category markers are circles or narrow rounded bars. Windows explorer items use the badge radius, category strips use the marker radius, and noninteractive gap fills use the gap radius. These measurements do not redefine native button, menu, dialog or form shapes.
 
 ## Components
 
-### Buttons and Toolbar
+### Commands and Inputs
 
-Commands use native `Button` and `Label`, with SF Symbols, descriptive help, and native disabled states. Refresh has the Command-R shortcut. Inspector has Command-Option-I and toggles the inline pane or opens the narrow-workspace popover. The toolbar groups supported management commands in an Actions menu only when the selected node has real available actions. `DeviceActionButtons` supplies both that menu and `DeviceContextMenu`; the context menu also provides Finder, identifier-copy, and Refresh commands when applicable. Child-device rows and map segments use the existing plain button style; preserve native keyboard and focus behavior.
+Native toolbars and command bars expose Refresh, inspector visibility and existing supported management actions. macOS uses Command-R and Command-Option-I; Windows uses Ctrl-R or F5 and Ctrl-I. Search uses a SwiftUI text field with a clear button or a WinUI `AutoSuggestBox`. Device filtering and partition sorting use native pickers or combo boxes. Capability checks and existing confirmations determine whether management controls can act.
 
-### Navigation
+### Device Browser
 
-The sidebar is a native sidebar-style selectable `List` with an `OutlineGroup` over the real device hierarchy. Native outline controls own disclosure gutters and indentation. Each bounded row combines its device symbol, a single-line tail-truncated name, and caption metadata. The caption shows kind and capacity when both fit, then retains capacity alone when the row is narrower. Selected symbols and captions inherit the native selection foreground; unselected supporting content uses the secondary foreground. The tooltip and combined accessibility label retain the full name, kind, identifier, and capacity. Hierarchy represents actual physical disk, partition, APFS container, and volume relationships.
+Both platforms group physical disks as Internal, External, Removable or Other devices from reported metadata. Filters cover all, internal, external and removable devices. macOS retains its real outline hierarchy when search is empty. Windows normally lists disks and exposes their partitions and volumes in the working area, with an additional unattached-volumes expander.
 
-### Capacity Summary
+Active search directly lists matching disks, partitions and volumes, including each child result's parent-disk association. Matching covers names, identifiers, reported filesystems, mount locations, model, manufacturer and connection. Search and filters do not invent device metadata or change the selected operation target. Empty results explain the absence of matches. Full names and identifiers remain available through tooltips and accessibility labels.
 
-A compact vertical pair places a secondary caption above a title-style capacity value with tabular digits. The pairs flow through an adaptive grid in `DeviceDetailView`. Decimal byte formatting comes from `ByteCountFormatter`; absent capacities read "Not available". APFS volume totals are explicitly labeled "Shared capacity" or "Capacity limit", and available space is labeled "Available to volume". Retain the supporting explanation that APFS volumes share container free space.
+### Overview and Capacity
 
-### Inspector Properties
+The selected-device overview combines a native icon, name, identifier, reported model and connection, partition scheme, status and capacities. macOS adds reported protection badges and a usage indicator only when relevant values exist. Exact-byte tooltips accompany formatted capacity values. Missing values remain explicitly unavailable. APFS volumes retain shared-capacity or quota labels and an explanation that shared free capacity is not unallocated disk space.
 
-A native grouped form contains device and volume/storage sections. Each property stacks a secondary caption over its selectable value. Long values can wrap vertically. Each row has a combined accessibility label and value. Missing metadata remains explicit rather than disappearing or receiving a fabricated value.
+### Information Inspector
 
-### Notices and Loading States
+macOS uses a grouped `Form` with General, Storage, Connection, Protection and Advanced sections. Windows groups selectable properties as General, Storage, Connection, Protection & actions and Advanced. Copy actions cover the selected identifier and supported property values. Technical identities, exact capacities and backend limitations remain available without crowding the overview.
 
-Notices pair a secondary SF Symbol with a medium-weight title and secondary caption detail on a quaternary background. Error and success meaning comes from the title, symbol, and message, rather than a custom status palette. Native progress controls and content-unavailable views supply loading, discovery failure, and empty states. These native states have no bespoke shadow, radius, or animation tokens.
+### Partition Map and Rows
 
-### Physical Partition Map
+macOS segments have a 48-point minimum width, four-point spacing and a 96-point button height in a horizontally scrolling track. Remaining width is distributed by reported capacity. Labels expand at 110 points; narrow segments retain a number. Gaps are not plotted. APFS volumes highlight their physical store rather than receiving fictitious physical segments. A legend and sortable partition list retain full names, format, identifier, exact-capacity tooltips and available usage information.
 
-The 64-point track compares reported physical partition capacities with a 48-point minimum target and four-point spacing. Remaining width is capacity-weighted; dense layouts scroll horizontally. The geometry is explicitly schematic and does not plot gaps or claim unallocated regions. Unknown capacities remain unknown, and APFS volumes do not receive independent physical segments.
+Windows minimum allocation widths are 36 for reported partitions, 48 for backend regions or proposals and four for unmapped gaps. Interactive buttons reserve three units within their allocation; exact byte values remain in tooltips. Segment buttons are 102 high in a 122-high scroll control, with expanded labels at 90 units. Valid reported offsets allow unmapped metadata gaps; missing or inconsistent positioning falls back to a capacity comparison. Only Rust-reported regions can be presented as allocatable. Existing proposed layouts remain separate and read-only.
 
-A synchronized partition list shows names, formats, mount paths/identifiers and exact capacities. Tooltips, accessibility labels, keyboard-focusable buttons and context menus keep tiny partitions inspectable. Selection uses an accent border and list highlight; an APFS volume highlights its physical store. `PartitionPresentation` supplies consistent names/categories, while `PartitionMapLayout` supplies independently tested widths.
+Selection synchronizes the map, working rows and inspector; sorting changes list order without changing the physical map or selected identity. Selected segments add an accent border and a checkmark; macOS rows also add an accent-tinted background. macOS Left/Right movement tracks the focused segment, moves focus and selection, and scrolls the destination into view. Windows Left/Right/Home/End move native button focus; Enter or Space selects. Context menus use the selected real device and existing capabilities.
 
-**The Partition Capacity Rule.** Compare reported physical capacities with documented minimum visual widths, retain exact values in text, and keep APFS sharing explicit. Do not infer allocatable space from gaps.
+macOS selection animation uses `.easeOut(duration: 0.16)` only when Reduce Motion is off. Windows adds no custom animation timeline and retains default native control motion.
 
-### Management and Validation Scope
+**The Partition Capacity Rule.** Keep minimum visual widths explicit, preserve exact byte values, and distinguish physical partitions, shared filesystem capacity, unmapped metadata and backend allocation regions.
 
-Rename uses a native sheet with label entry, backend validation preview and explicit confirmation. Every mount/unmount/eject also requires confirmation. Context actions and the selected-item management section use real backend capabilities and explanations. System/boot/recovery, external/USB, read-only and encryption badges appear only from reported metadata.
+### Feedback and Partition Previews
 
-Milestone 5 portable Swift models and Rust fixtures were tested on Windows. Historical native layout observations earlier in this document predate these changes. Current native Xcode build, light/dark rendering, enlarged text, VoiceOver and external-volume rename need a Mac; see `docs/milestone-5-macos-refinement.md`.
+Native progress controls distinguish initial discovery from refresh and active operations. Errors retain their message and retry path; warnings expose incomplete data. Dismissible completion and disconnection notices preserve context when inventory changes. Selection reconciles against refreshed backend identities.
+
+Windows retains existing partition previews in the `Partition planning · Preview only` expander, which opens when entering the planning editor. macOS shows the backend's unsupported planning state in the inspector. No formatting, erase, resize, raw-write or partition-commit control is introduced by this redesign. Rust safety policy, stable JSON/C ABI boundaries and explicit supported-operation confirmation remain authoritative.
 
 ## Do's and Don'ts
 
 ### Do:
 
-- **Do** use native macOS SwiftUI controls, SF Symbols, system typography, and semantic colors.
-- **Do** preserve primary values with secondary labels and the implemented spacing roles.
-- **Do** use tabular digits for capacity values and retain explicit shared-capacity language for APFS volumes.
-- **Do** pair partition hues with names, identifiers, and capacities.
-- **Do** retain resizable panes, scrollable detail, the inspector toggle, and explicit unavailable metadata.
+- **Do** use native system typography, semantic foregrounds and platform control states.
+- **Do** preserve Diskvio branding and the supplied app artwork.
+- **Do** show parent relationships, exact capacities and unavailable metadata honestly.
+- **Do** keep map, browser, rows and inspector selection consistent.
+- **Do** preserve native resizing, scrolling, keyboard access and backend capability checks.
 
 ### Don't:
 
-- **Don't** replace appearance-aware native colors or semantic text styles with guessed fixed values.
-- **Don't** use colour alone to communicate category, selection or operation availability.
-- **Don't** render shared APFS volume capacity as an independent physical partition.
-- **Don't** generalize the map radius into a custom style for native controls.
-- **Don't** present source-level layout or accessibility affordances as runtime validation.
+- **Don't** infer free space or allocation authorization from visual gaps or colors.
+- **Don't** present APFS shared capacity as an independent physical region.
+- **Don't** replace semantic native values with guessed fixed colors or custom control skins.
+- **Don't** add decorative cards, custom shadows or an alternate visual identity.
+- **Don't** treat static checks or portable tests as native runtime or whole-product visual approval.

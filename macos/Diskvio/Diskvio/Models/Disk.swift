@@ -132,9 +132,11 @@ nonisolated struct PhysicalDisk: Decodable, Sendable {
     let removable: Bool?
     let ejectable: Bool?
     var partitions: [DiskPartition]
+    var manufacturer: String?
+    var model: String?
 
     enum CodingKeys: String, CodingKey {
-        case device, number, `internal`, removable, ejectable, partitions
+        case device, number, `internal`, removable, ejectable, partitions, manufacturer, model
         case partitionScheme = "partition_scheme", connectionType = "connection_type"
     }
 

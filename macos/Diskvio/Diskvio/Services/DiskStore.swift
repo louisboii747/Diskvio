@@ -17,6 +17,7 @@ final class DiskStore: ObservableObject {
     @Published private(set) var operationMessage: String?
     @Published private(set) var operationFailed = false
     @Published private(set) var monitoringError: String?
+    @Published private(set) var deviceMessage: String?
     @Published var pendingOperation: PendingDiskOperation?
     @Published var renameTarget: DeviceNode?
 
@@ -168,7 +169,11 @@ final class DiskStore: ObservableObject {
             // A removal during discovery invalidates the snapshot. The immediate
             // removal stays visible; one coalesced follow-up retrieves current data.
             if scanGeneration == generation {
+                let previous = selectedNode
                 inventory = updated
+                if let previous, !nodes.flatMap(\.flattened).contains(where: { $0.id == previous.id }) {
+                    deviceMessage = "\(previous.displayName) is no longer available. The device list has been updated."
+                }
                 reconcileSelection()
                 errorMessage = nil
                 lastUpdated = Date()
@@ -217,6 +222,9 @@ final class DiskStore: ObservableObject {
         }
     }
 
+    func dismissOperationMessage() { operationMessage = nil }
+    func dismissDeviceMessage() { deviceMessage = nil }
+
     /// Read-only preview. Execution repeats this check against a fresh backend snapshot.
     func preview(_ request: OperationRequest) async throws {
         let capabilitiesLoader = loadCapabilities
@@ -252,6 +260,10 @@ final class DiskStore: ObservableObject {
         invalidatePartitionPlanning()
         inventoryRevision &+= 1
         if event.kind == .disappeared {
+            if let selected = selectedNode,
+               selected.device.identifier == event.identifier || selected.disk.device.identifier == event.identifier {
+                deviceMessage = "\(selected.displayName) was disconnected. Reconnect the device to inspect it again."
+            }
             let removedStoreIDs = Set(inventory.disks.filter { $0.device.identifier == event.identifier }
                 .flatMap { [$0.device.identifier] + $0.partitions.map { $0.device.identifier } })
             inventory.disks.removeAll { $0.device.identifier == event.identifier }

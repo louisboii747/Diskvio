@@ -48,6 +48,7 @@ struct NoticeView: View {
     let title: String
     let message: String
     let symbol: String
+    var dismiss: (() -> Void)?
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: symbol).foregroundStyle(.secondary)
@@ -56,6 +57,10 @@ struct NoticeView: View {
                 Text(message).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
             }
             Spacer(minLength: 0)
+            if let dismiss {
+                Button(action: dismiss) { Image(systemName: "xmark") }
+                    .buttonStyle(.borderless).help("Dismiss message").accessibilityLabel("Dismiss message")
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -15,6 +15,5 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
         AppWindow.Resize(new SizeInt32(1280, 780));
         AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
-        Shell.SelectedItem = DevicesNavigationItem;
     }
 }

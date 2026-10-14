@@ -26,4 +26,19 @@ public static class PartitionPresentation
             ? device.Name : device.DriveLetter is { } letter ? $"Volume ({letter}:)" : "Unlabelled volume";
 
     public static string Filesystems(StoragePartition p) => string.Join(", ", p.Volumes.Select(v => v.Device.Filesystem?.Name).Append(p.Device.Filesystem?.Name).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct());
+
+    public static string Tone(StoragePartition partition)
+    {
+        var filesystems = partition.Volumes.Select(v => v.Device.Filesystem).Append(partition.Device.Filesystem).Where(f => f is not null).ToList();
+        var tones = filesystems.Select(f => (f!.Kind + " " + f.Name).ToLowerInvariant()).Select(value => value switch
+        {
+            var v when v.Contains("ntfs", StringComparison.Ordinal) => "NTFS",
+            var v when v.Contains("apfs", StringComparison.Ordinal) => "APFS",
+            var v when v.Contains("exfat", StringComparison.Ordinal) => "ExFAT",
+            var v when v.Contains("fat", StringComparison.Ordinal) => "FAT",
+            var v when v.Contains("ext4", StringComparison.Ordinal) || v.Contains("ext3", StringComparison.Ordinal) || v.Contains("ext2", StringComparison.Ordinal) => "Ext",
+            _ => "Unknown"
+        }).Distinct().ToList();
+        return tones.Count == 1 ? tones[0] : "Unknown";
+    }
 }

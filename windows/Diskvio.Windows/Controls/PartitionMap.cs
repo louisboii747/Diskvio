@@ -12,13 +12,13 @@ public sealed class PartitionMap : UserControl
     public event Action<AllocatableRegion>? RegionSelected;
     public event Action<PartitionSegment, FrameworkElement>? TargetContextRequested;
     public bool IsPreview { get; set; }
-    private readonly Canvas _canvas = new() { Height = 84 };
+    private readonly Canvas _canvas = new() { Height = 102 };
     private PartitionLayout? _layout;
     private string? _selectedId;
     public PartitionMap()
     {
         Content = new ScrollViewer { Content = _canvas, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
-        Height = 104;
+        Height = 122;
         SizeChanged += (_, _) => Render();
         ActualThemeChanged += (_, _) => Render();
     }
@@ -37,7 +37,8 @@ public sealed class PartitionMap : UserControl
         {
             var segment = _layout.Segments[i];
             var width = widths[i];
-            var categoryBrush = (Brush)Application.Current.Resources[BrushKey(segment.Category)];
+            var tone = segment.Partition is { } colored ? PartitionPresentation.Tone(colored) : "Unknown";
+            var categoryBrush = (Brush)Application.Current.Resources[tone != "Unknown" ? $"Partition{tone}Brush" : BrushKey(segment.Category)];
             FrameworkElement element;
             if (segment.Partition is not null || segment.Region is not null || segment.Proposal is not null)
             {
@@ -47,9 +48,9 @@ public sealed class PartitionMap : UserControl
                 content.Children.Add(new Border { Background = categoryBrush, CornerRadius = new CornerRadius(2) });
                 if (width >= 90)
                 {
-                    var labels = new StackPanel { Spacing = 3, Margin = new Thickness(6, 0, 6, 0) };
+                    var labels = new StackPanel { Spacing = 3, Margin = new Thickness(6, 0, 22, 0) };
                     labels.Children.Add(new TextBlock { Text = segment.Label, TextTrimming = TextTrimming.CharacterEllipsis, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-                    labels.Children.Add(new TextBlock { Text = $"{Disk.FormatCapacity(segment.Length)} · {segment.KindLabel}", FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis });
+                    labels.Children.Add(new TextBlock { Text = $"{segment.DisplayCapacity} · {segment.KindLabel}", FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis });
                     if (segment.Partition is { } existing)
                     {
                         var mounts = string.Join(", ", existing.Volumes.Select(v => v.Device.DriveLetter is { } letter ? $"{letter}:" : v.Device.MountPoint).Where(m => !string.IsNullOrWhiteSpace(m)));
@@ -59,14 +60,22 @@ public sealed class PartitionMap : UserControl
                 }
                 else
                 {
-                    var label = new TextBlock { Text = segment.Partition?.Number?.ToString(System.Globalization.CultureInfo.CurrentCulture) ?? (segment.Region is not null ? "Free" : "Plan"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                    var label = new TextBlock { Text = segment.Partition?.Number?.ToString(System.Globalization.CultureInfo.CurrentCulture) ?? (segment.Partition is not null ? "?" : segment.Region is not null ? "Free" : "Plan"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                     Grid.SetRow(label, 1); content.Children.Add(label);
                 }
-                var button = new Button { Content = content, Tag = segment.SelectionId, Width = Math.Max(1, width - 2), Height = 84,
+                var button = new Button { Content = content, Tag = segment.SelectionId, Width = Math.Max(1, width - 3), Height = 102,
                     Padding = new Thickness(4), MinWidth = 0, HorizontalContentAlignment = HorizontalAlignment.Stretch,
                     VerticalContentAlignment = VerticalAlignment.Stretch,
                     BorderThickness = new Thickness(!IsPreview && _selectedId == segment.SelectionId ? 2 : 1),
                     BorderBrush = (Brush)Application.Current.Resources[!IsPreview && _selectedId == segment.SelectionId ? "SystemControlHighlightAccentBrush" : "ControlStrokeColorDefaultBrush"] };
+                AutomationProperties.SetItemStatus(button, !IsPreview && _selectedId == segment.SelectionId ? "Selected" : "Not selected");
+                if (!IsPreview && _selectedId == segment.SelectionId && width >= 90)
+                {
+                    var selected = new FontIcon { Glyph = "\uE73E", FontSize = 12, HorizontalAlignment = HorizontalAlignment.Right,
+                        VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 4, 4), Foreground = button.BorderBrush };
+                    Grid.SetRow(selected, 1);
+                    content.Children.Add(selected);
+                }
                 AutomationProperties.SetHelpText(button, IsPreview ? "Read-only proposed layout. Nothing has been applied." : "Select to inspect this partition or region. Use arrow keys to move focus and Enter or Space to select. Small targets have a minimum visual width.");
                 button.Click += (_, _) =>
                 {
@@ -98,7 +107,7 @@ public sealed class PartitionMap : UserControl
                 };
                 element = button;
             }
-            else element = new Border { Width = Math.Max(1, width - 1), Height = 84, Background = categoryBrush, CornerRadius = new CornerRadius(3) };
+            else element = new Border { Width = Math.Max(1, width - 1), Height = 102, Background = categoryBrush, CornerRadius = new CornerRadius(3) };
             ToolTipService.SetToolTip(element, new TextBlock { Text = segment.Description, MaxWidth = 420, TextWrapping = TextWrapping.Wrap });
             AutomationProperties.SetName(element, segment.Description);
             Canvas.SetLeft(element, left); _canvas.Children.Add(element); left += width;

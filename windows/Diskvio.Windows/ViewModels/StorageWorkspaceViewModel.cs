@@ -24,7 +24,7 @@ public sealed partial class StorageWorkspaceViewModel : ObservableObject, IDispo
     public ObservableCollection<StorageNode> Disks { get; } = [];
     public ObservableCollection<StorageNode> UnattachedVolumes { get; } = [];
     public IReadOnlyList<StorageNode> Children => SelectedDisk is { } disk
-        ? disk.Children.SelectMany(part => new[] { part }.Concat(part.Children)).Concat(RegionNodes).ToList() : [];
+        ? SortedPartitions(disk.Children).SelectMany(part => new[] { part }.Concat(part.Children)).Concat(RegionNodes).ToList() : [];
     public ObservableCollection<InspectorProperty> Properties { get; } = [];
     public IAsyncRelayCommand RefreshCommand { get; }
     public IAsyncRelayCommand InspectPartitionPlanningCommand { get; }
@@ -151,11 +151,16 @@ public sealed partial class StorageWorkspaceViewModel : ObservableObject, IDispo
             (n.Disk is null || n.Disk.Device.StableId == diskStable)) ?? SelectedDisk;
         if (restored is { Disk: null }) SelectedDisk = null;
         SelectedNode = restored;
+        if (nodeId is not null && !all.Any(n => n.Device.Identifier == nodeId || nodeIdentity is not null && n.Device.IdentityToken == nodeIdentity))
+            _deviceNotice = "The previously selected device is no longer available. The device list has been updated.";
+        _lastUpdated = DateTimeOffset.Now;
+        NotifyBrowser();
         OnPropertyChanged(nameof(Layout));
     }
     private void ClearInventory()
     {
         Disks.Clear(); UnattachedVolumes.Clear(); SelectedDisk = null; SelectedNode = null; _warnings = "";
+        NotifyBrowser();
     }
     public async Task ExecuteAsync(DiskAction action, Func<StorageNode, DiskAction, Task<bool>> confirm)
         => await ExecuteWithParametersAsync(action, async (node, a) => await confirm(node, a) ? new OperationInput() : null);
@@ -165,11 +170,15 @@ public sealed partial class StorageWorkspaceViewModel : ObservableObject, IDispo
         if (action == DiskAction.Eject || !CanAct(action) || ActionTarget is not { } node) return;
         InvalidatePlanning(true);
         SetBusy(true);
+        _activity = $"Awaiting confirmation for {node.Name}…";
+        Notify();
         _error = ""; _result = "";
         try
         {
             var input = await confirm(node, action);
             if (input is null) return;
+            _activity = $"{action switch { DiskAction.RenameVolume => "Renaming", DiskAction.SetDriveLetter => "Changing drive letter for", DiskAction.Mount => "Mounting", _ => "Unmounting" }} {node.Name}…";
+            Notify();
             var request = new DiskOperationRequest { Action = action, Identifier = node.Device.Identifier, ExpectedIdentity = node.Device.IdentityToken!, VolumeLabel = input.VolumeLabel, DriveLetter = input.DriveLetter,
                 ExpectedMountPoints = action is DiskAction.RenameVolume or DiskAction.SetDriveLetter ? [.. node.Device.MountPoints] : null };
             var caps = await _service.SupportedOperationsAsync(request.Identifier);
@@ -191,7 +200,7 @@ public sealed partial class StorageWorkspaceViewModel : ObservableObject, IDispo
             try { await LoadInventoryAsync(); }
             catch (Exception refreshError) { ClearInventory(); _error += Environment.NewLine + refreshError.Message; }
         }
-        finally { SetBusy(false); if (_refreshPending) await RefreshAsync(); }
+        finally { _activity = ""; SetBusy(false); if (_refreshPending) await RefreshAsync(); }
         await QueryCapabilitiesAsync();
     }
     private void SetBusy(bool value) { _busy = value; Notify(); NotifyPlanning(); RefreshCommand.NotifyCanExecuteChanged(); InspectPartitionPlanningCommand.NotifyCanExecuteChanged(); }
@@ -200,18 +209,20 @@ public sealed partial class StorageWorkspaceViewModel : ObservableObject, IDispo
         foreach (var name in new[] { nameof(IsBusy), nameof(CanInspect), nameof(IsEmpty), nameof(HasError), nameof(ErrorMessage),
             nameof(HasResult), nameof(ResultMessage), nameof(HasWarnings), nameof(Warnings), nameof(HasSelection), nameof(SelectionName),
             nameof(SelectionSummary), nameof(DeviceCount), nameof(CanMount), nameof(CanUnmount), nameof(CanRename), nameof(CanSetDriveLetter),
-            nameof(ActionExplanation), nameof(Limitations), nameof(SelectionBadges), nameof(LabelMaxLength), nameof(HasDiskSelection), nameof(PartitionEmptyMessage), nameof(CanInspectPartitionPlanning), nameof(PartitionPlanningSummary) }) OnPropertyChanged(name);
+            nameof(ActionExplanation), nameof(Limitations), nameof(SelectionBadges), nameof(LabelMaxLength), nameof(HasDiskSelection), nameof(PartitionEmptyMessage), nameof(CanInspectPartitionPlanning), nameof(PartitionPlanningSummary),
+            nameof(DiskName), nameof(DiskSubtitle), nameof(DiskModel), nameof(DiskCapacity), nameof(DiskConnection), nameof(DiskScheme), nameof(DiskStatus), nameof(InspectorTitle), nameof(SelectedIdentifier), nameof(HasVolumeActions),
+            nameof(Activity), nameof(BrowserSummary), nameof(LastUpdated), nameof(HasDeviceNotice), nameof(DeviceNotice), nameof(IsInitialLoading), nameof(HasUnattachedSelection), nameof(BrowserSelection) }) OnPropertyChanged(name);
         InspectPartitionPlanningCommand.NotifyCanExecuteChanged();
     }
     private void BuildProperties()
     {
         Properties.Clear();
-        if (SelectedNode is not { } node) return;
+        if (SelectedNode is not { } node) { OnPropertyChanged(nameof(PropertySections)); return; }
         void Add(string key, object? value) { if (value is not null) Properties.Add(new(key, value.ToString()!)); }
         var d = node.Device;
         Add("Kind", node.Kind); Add("Capacity", d.SizeBytes is { } size ? $"{Models.Disk.FormatCapacity(size)} ({size:N0} bytes)" : "Not reported");
-        Add("Used", d.UsedBytes is { } used ? Models.Disk.FormatCapacity(used) : null);
-        Add("Available", d.AvailableBytes is { } free ? Models.Disk.FormatCapacity(free) : null);
+        Add("Used", node.UsedBytes is { } used ? $"{Models.Disk.FormatCapacity(used)} ({used:N0} bytes)" : "Not reported");
+        Add("Available", node.AvailableBytes is { } free ? $"{Models.Disk.FormatCapacity(free)} ({free:N0} bytes)" : "Not reported");
         Add("File system", node.Filesystem); Add("Volume label", node.Volume?.Label ?? (node.Kind == "Partition" ? node.Partition?.Volumes.FirstOrDefault()?.Label : null));
         Add("Drive letter / mount", node.Location); Add("Partition number", node.Partition?.Number); Add("Partition type", node.Kind != "Physical disk" ? node.Type : null);
         Add("Health", string.IsNullOrEmpty(node.Health) ? null : node.Health); Add("Status", string.IsNullOrEmpty(node.Status) ? null : node.Status);
@@ -226,6 +237,7 @@ public sealed partial class StorageWorkspaceViewModel : ObservableObject, IDispo
         Add("Supported operations", _capabilities is null ? "Checking / unavailable" : _capabilities.Actions.Count == 0 ? "None" : string.Join(", ", _capabilities.Actions.Select(a => a switch { DiskAction.RenameVolume => "Rename label", DiskAction.SetDriveLetter => "Change drive letter", _ => a.ToString() })));
         Add("Action target", ActionTarget?.Kind == "Volume" ? ActionTarget.Name : null);
         AddPlanningProperties();
+        OnPropertyChanged(nameof(PropertySections));
     }
 }
 

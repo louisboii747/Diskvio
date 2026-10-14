@@ -4,6 +4,8 @@ public sealed record PartitionSegment(StoragePartition? Partition, ulong Offset,
 {
     public string? SelectionId => Region is { } region ? PartitionPlanInput.RegionId(region) : Partition?.Device.Identifier;
     public string Label => Proposal ?? (Region is not null ? "Unallocated space" : Partition is { } p ? PartitionPresentation.Name(p) : "Unmapped space / metadata");
+    public bool HasKnownSize => Partition is null || Partition.Device.SizeBytes is not null;
+    public string DisplayCapacity => HasKnownSize ? Disk.FormatCapacity(Length) : "Capacity not reported";
     public string Category => Proposal is not null ? "proposal" : Region is not null ? "unallocated" : Partition is { } p ? p.Device.Safety.Recovery == true ? "recovery" : p.Device.Safety.System == true || p.Device.Safety.Boot == true ? "efi_system" : PartitionPresentation.Role(p) : "unmapped";
     public string KindLabel => Category switch
     {
@@ -11,7 +13,8 @@ public sealed record PartitionSegment(StoragePartition? Partition, ulong Offset,
         "recovery" => "Recovery", "microsoft_reserved" => "Reserved", "basic_data" => "Basic data",
         "unmapped" => "Metadata / unmapped", _ => "Unknown type"
     };
-    public string Description => $"{Label} · {Disk.FormatCapacity(Length)} · offset {Offset:N0} bytes" +
+    public string Description => $"{Label} · {DisplayCapacity}" + (HasKnownSize ? $" ({Length:N0} bytes)" : "") +
+        (Partition is not null && Partition.OffsetBytes is null ? " · offset not reported" : $" · offset {Offset:N0} bytes") +
         (Partition is { } p ? $" · {PartitionPresentation.RoleName(p) ?? "Type not reported"} · {PartitionPresentation.Filesystems(p)} · {string.Join(", ", p.Volumes.SelectMany(v => v.Device.MountPoints))} · {p.Device.Identifier}" : Region is { } region ? $" · Safely allocatable: {region.MaximumAllocatableBytes:N0} bytes · {PartitionPlanInput.Issues(region.Validation)}" : " · Not an authorized allocation target");
 }
 
@@ -108,5 +111,5 @@ public sealed record PartitionLayout(bool IsPhysical, string Explanation, IReadO
     }
     private static PartitionLayout Unknown(List<StoragePartition> partitions) => new(false,
         "Physical positioning is unavailable. Reported capacities are shown with minimum widths for tiny partitions; no gaps are inferred.",
-        partitions.Where(p => p.Device.SizeBytes is > 0).Select(p => new PartitionSegment(p, 0, p.Device.SizeBytes!.Value)).ToList());
+        partitions.Select(p => new PartitionSegment(p, p.OffsetBytes ?? 0, p.Device.SizeBytes ?? 0)).ToList());
 }

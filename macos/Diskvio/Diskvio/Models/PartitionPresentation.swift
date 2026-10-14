@@ -14,6 +14,8 @@ nonisolated struct PartitionPresentation: Sendable {
     var typeName: String? {
         switch partition.contentType {
         case "Apple_APFS": "APFS Physical Store"
+        case "Apple_APFS_ISC": "Apple Silicon System Store"
+        case "Apple_APFS_Recovery": "APFS Recovery Store"
         case "Apple_HFS": "Apple HFS Partition"
         case "Apple_partition_map": "Apple Partition Map"
         case "Apple_Free": "Apple Free Partition"
@@ -36,7 +38,6 @@ nonisolated struct PartitionPresentation: Sendable {
 
     var name: String {
         if let label = partition.device.volumeLabel, !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return label }
-        // Older backends used a real filesystem label as `name`.
         let device = partition.device
         if device.filesystem != nil, device.name != device.identifier, device.name != device.mediaName,
            !device.name.isEmpty, !device.name.hasPrefix("Partition ") { return device.name }

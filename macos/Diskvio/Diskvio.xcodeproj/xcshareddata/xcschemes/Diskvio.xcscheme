@@ -10,6 +10,9 @@
    <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
       <Testables>
          <TestableReference skipped="NO">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="4AF5A96330756F6F008B7DBA" BuildableName="DiskvioUITests.xctest" BlueprintName="DiskvioUITests" ReferencedContainer="container:Diskvio.xcodeproj"/>
+         </TestableReference>
+         <TestableReference skipped="NO">
             <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="4AF5A95930756F6F008B7DBA" BuildableName="DiskvioTests.xctest" BlueprintName="DiskvioTests" ReferencedContainer="container:Diskvio.xcodeproj"/>
          </TestableReference>
       </Testables>

@@ -40,4 +40,10 @@ struct ContentView: View {
     }
 }
 
-#Preview { ContentView() }
+#Preview("Light") {
+    ContentView().frame(width: 1280, height: 780).preferredColorScheme(.light)
+}
+
+#Preview("Dark, compact") {
+    ContentView().frame(width: 900, height: 650).preferredColorScheme(.dark)
+}

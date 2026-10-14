@@ -78,7 +78,10 @@ struct DeviceWorkspaceView: View {
             }
             if let message = store.operationMessage {
                 NoticeView(title: store.operationFailed ? "Operation failed" : "Operation complete", message: message,
-                           symbol: store.operationFailed ? "exclamationmark.triangle" : "checkmark.circle")
+                           symbol: store.operationFailed ? "exclamationmark.triangle" : "checkmark.circle", dismiss: store.dismissOperationMessage)
+            }
+            if let message = store.deviceMessage {
+                NoticeView(title: "Device unavailable", message: message, symbol: "externaldrive.badge.exclamationmark", dismiss: store.dismissDeviceMessage)
             }
             if let message = store.monitoringError {
                 NoticeView(title: "Live detection unavailable", message: message, symbol: "externaldrive.badge.exclamationmark")
@@ -110,6 +113,22 @@ struct DeviceWorkspaceView: View {
             } else {
                 ContentUnavailableView("No Physical Disks Found", systemImage: "externaldrive", description: Text("Connect a storage device or choose Refresh to scan again."))
             }
+            Divider()
+            HStack(spacing: 6) {
+                if store.isLoading {
+                    ProgressView().controlSize(.mini)
+                    Text("Refreshing device information…")
+                } else if let updated = store.lastUpdated {
+                    Image(systemName: "clock").accessibilityHidden(true)
+                    Text("Updated \(updated.formatted(date: .omitted, time: .standard))")
+                } else {
+                    Text("Storage explorer")
+                }
+                Spacer()
+                if store.selectedNode?.disk.internal == true {
+                    Label("Inspection only", systemImage: "lock.shield")
+                }
+            }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.vertical, 9)
         }
     }
 

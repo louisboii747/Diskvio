@@ -12,6 +12,11 @@
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="PartitionNTFSBrush" Color="#2463AB" />
+                    <SolidColorBrush x:Key="PartitionAPFSBrush" Color="#7653AD" />
+                    <SolidColorBrush x:Key="PartitionFATBrush" Color="#247442" />
+                    <SolidColorBrush x:Key="PartitionExFATBrush" Color="#147D83" />
+                    <SolidColorBrush x:Key="PartitionExtBrush" Color="#956519" />
                     <SolidColorBrush x:Key="PartitionSystemBrush" Color="#986000" />
                     <SolidColorBrush x:Key="PartitionRecoveryBrush" Color="#247442" />
                     <SolidColorBrush x:Key="PartitionReservedBrush" Color="#757575" />
@@ -20,6 +25,11 @@
                     <SolidColorBrush x:Key="PartitionUnmappedBrush" Color="#303030" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="PartitionNTFSBrush" Color="#8BBBF0" />
+                    <SolidColorBrush x:Key="PartitionAPFSBrush" Color="#C2A2EF" />
+                    <SolidColorBrush x:Key="PartitionFATBrush" Color="#8BD1A3" />
+                    <SolidColorBrush x:Key="PartitionExFATBrush" Color="#83CED0" />
+                    <SolidColorBrush x:Key="PartitionExtBrush" Color="#E5BF7A" />
                     <SolidColorBrush x:Key="PartitionSystemBrush" Color="#E8B45D" />
                     <SolidColorBrush x:Key="PartitionRecoveryBrush" Color="#73C991" />
                     <SolidColorBrush x:Key="PartitionReservedBrush" Color="#ADADAD" />
@@ -28,6 +38,11 @@
                     <SolidColorBrush x:Key="PartitionUnmappedBrush" Color="#121212" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="PartitionNTFSBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PartitionAPFSBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PartitionFATBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PartitionExFATBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PartitionExtBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="PartitionSystemBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="PartitionRecoveryBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="PartitionReservedBrush" Color="{ThemeResource SystemColorWindowTextColor}" />

@@ -19,15 +19,28 @@ nonisolated struct PartitionMapLayout: Sendable {
             return PartitionMapSegment(partition: partition, index: index, startBytes: start, totalBytes: total)
         }
     }
-    /// A schematic comparison of reported sizes, with no invented gap regions.
     func visualWidths(availableWidth: Double, minimumWidth: Double = 48, spacing: Double = 4) -> [Double] {
         guard !segments.isEmpty else { return [] }
         let count = Double(segments.count)
         let usable = max(availableWidth - spacing * (count - 1), minimumWidth * count)
-        let remaining = max(0, usable - minimumWidth * count)
+        var remaining = usable
         let weights = segments.map { Double($0.partition.device.sizeBytes ?? 0) }
-        let sum = weights.reduce(0, +)
-        return weights.map { minimumWidth + remaining * (sum > 0 ? $0 / sum : 1 / count) }
+        var widths = Array(repeating: 0.0, count: segments.count)
+        var pending = Array(segments.indices)
+        while !pending.isEmpty {
+            let total = pending.reduce(0) { $0 + weights[$1] }
+            let small = pending.filter { total <= 0 || remaining * weights[$0] / total < minimumWidth }
+            if small.isEmpty {
+                for index in pending { widths[index] = remaining * weights[index] / total }
+                break
+            }
+            for index in small {
+                widths[index] = minimumWidth
+                remaining -= minimumWidth
+            }
+            pending.removeAll { small.contains($0) }
+        }
+        return widths
     }
 }
 
