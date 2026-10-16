@@ -48,3 +48,5 @@ macos/.swiftpm/
 
 /buildServer.json
 /.compile
+
+.DS_Store
