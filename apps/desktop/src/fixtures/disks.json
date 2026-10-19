@@ -1,0 +1,92 @@
+[
+  {
+    "id": "demo-0",
+    "name": "System Drive",
+    "model": "Samsung SSD 990 PRO",
+    "serial": "DEMO-NVME-001",
+    "kind": "internal",
+    "connection": "NVMe / PCIe",
+    "partitionScheme": "GPT",
+    "capacityBytes": 1000000000000,
+    "partitions": [
+      {
+        "id": "demo-0-p1",
+        "name": "EFI System",
+        "offsetBytes": 0,
+        "capacityBytes": 1000000000,
+        "usedBytes": 250000000,
+        "filesystem": "FAT32",
+        "mountPoint": null
+      },
+      {
+        "id": "demo-0-p2",
+        "name": "Windows",
+        "offsetBytes": 1000000000,
+        "capacityBytes": 749000000000,
+        "usedBytes": 412000000000,
+        "filesystem": "NTFS",
+        "mountPoint": "C:"
+      },
+      {
+        "id": "demo-0-p3",
+        "name": "Workspace",
+        "offsetBytes": 750000000000,
+        "capacityBytes": 249000000000,
+        "usedBytes": 146000000000,
+        "filesystem": "NTFS",
+        "mountPoint": "D:"
+      },
+      {
+        "id": "demo-0-p4",
+        "name": "Recovery",
+        "offsetBytes": 999000000000,
+        "capacityBytes": 1000000000,
+        "usedBytes": 600000000,
+        "filesystem": "NTFS",
+        "mountPoint": null
+      }
+    ]
+  },
+  {
+    "id": "demo-1",
+    "name": "Archive",
+    "model": "Crucial MX500",
+    "serial": "DEMO-SATA-002",
+    "kind": "internal",
+    "connection": "SATA / 6 Gb/s",
+    "partitionScheme": "GPT",
+    "capacityBytes": 2000000000000,
+    "partitions": [
+      {
+        "id": "demo-1-p1",
+        "name": "Archive",
+        "offsetBytes": 0,
+        "capacityBytes": 1800000000000,
+        "usedBytes": 1180000000000,
+        "filesystem": "NTFS",
+        "mountPoint": "E:"
+      }
+    ]
+  },
+  {
+    "id": "demo-2",
+    "name": "Portable USB",
+    "model": "SanDisk Ultra USB 3.0",
+    "serial": "DEMO-USB-003",
+    "kind": "removable",
+    "connection": "USB / 3.0",
+    "partitionScheme": "MBR",
+    "capacityBytes": 64000000000,
+    "partitions": [
+      {
+        "id": "demo-2-p1",
+        "name": "PORTABLE",
+        "offsetBytes": 0,
+        "capacityBytes": 64000000000,
+        "usedBytes": 18500000000,
+        "filesystem": "exFAT",
+        "mountPoint": "F:"
+      }
+    ]
+  }
+]

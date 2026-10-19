@@ -1,0 +1,21 @@
+[workspace]
+members = ["apps/desktop/src-tauri", "crates/diskvio-core", "crates/diskvio-platform", "crates/diskvio-helper"]
+resolver = "3"
+
+[workspace.package]
+version = "2.0.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+diskvio-core = { path = "crates/diskvio-core" }
+diskvio-platform = { path = "crates/diskvio-platform" }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

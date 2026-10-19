@@ -6,6 +6,8 @@
 **/.turbo/
 **/.next/
 **/coverage/
+**/test-results/
+**/playwright-report/
 *.tsbuildinfo
 
 # Rust / Tauri build output

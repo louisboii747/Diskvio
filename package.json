@@ -1,0 +1,13 @@
+{
+  "name": "diskvio-workspace",
+  "private": true,
+  "packageManager": "pnpm@12.14.0",
+  "scripts": {
+    "dev": "pnpm --filter @diskvio/desktop tauri dev",
+    "build": "pnpm --filter @diskvio/desktop build",
+    "build:desktop": "pnpm --filter @diskvio/desktop tauri build",
+    "check": "pnpm --filter @diskvio/desktop check",
+    "lint": "pnpm --filter @diskvio/desktop lint",
+    "test": "pnpm --filter @diskvio/desktop test"
+  }
+}

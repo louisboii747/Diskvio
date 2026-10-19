@@ -12,9 +12,9 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Status-early%20development-64748b" alt="Early development">
   <img src="https://img.shields.io/badge/Tauri-2-24C8D8?logo=tauri&amp;logoColor=white" alt="Tauri 2">
-  <img src="https://img.shields.io/badge/React-planned-149ECA?logo=react&amp;logoColor=white" alt="React">
-  <img src="https://img.shields.io/badge/TypeScript-planned-3178C6?logo=typescript&amp;logoColor=white" alt="TypeScript">
-  <img src="https://img.shields.io/badge/Rust-planned-000000?logo=rust&amp;logoColor=white" alt="Rust">
+  <img src="https://img.shields.io/badge/React-19-149ECA?logo=react&amp;logoColor=white" alt="React">
+  <img src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&amp;logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Rust-stable-000000?logo=rust&amp;logoColor=white" alt="Rust">
 </p>
 
 <p align="center">
@@ -27,88 +27,171 @@
 
 ---
 
-> **Project status:** Diskvio is being rebuilt from scratch. This repository currently contains the project foundation and architecture notes, **not a runnable app or production-ready disk operations**. Platform badges describe targets, not released support.
+> **Project status:** Milestone 1 is implemented: a buildable Tauri desktop foundation with clearly labelled demonstration devices. **No real disk discovery or disk-changing operations are enabled.** Windows builds and native WebView IPC have been verified; macOS/Linux runtime support remains unverified.
 
-## What is Diskvio?
+## What works today
 
-Diskvio is an open-source disk and partition utility planned for **Windows, macOS and Linux**. The goal is a dependable tool that makes storage devices easy to understand and provides clear, deliberate workflows for operations that can change or destroy data.
+- A compact desktop workspace with Disk Overview, Partitions, USB Writer and Settings.
+- Three explicitly simulated physical disks, selectable device details, capacity/usage information, filesystem and mount labels.
+- Byte-proportional partition maps, including unallocated space and readable tables for small system partitions.
+- Light, dark and system themes; persisted preference, keyboard navigation, focus indicators and reduced-motion support.
+- A real Rust `get_app_info` command connected through Tauri IPC.
+- Native menu groundwork with demonstration refresh, navigation, Settings, About and Quit; unavailable operations are disabled.
+- Shared Rust domain models, validation, platform capability stubs and an inactive non-privileged helper.
+- Frontend/Rust tests, browser accessibility checks and a cross-platform CI configuration.
 
-### Planned features
-
-- **Disk overview:** physical devices, capacities, partitions, filesystems, mount points and connection details.
-- **Partition management:** inspect, create, delete, format and resize partitions where the operating system and filesystem allow it.
-- **USB media tools:** write compatible bootable images to removable devices and verify results where feasible.
-- **Native desktop behaviour:** keyboard shortcuts, platform dialogs, context menus and a proper macOS application menu bar.
-- **Transparent operations:** explicit capabilities, progress, actionable errors and confirmations before destructive changes.
-
-Features above are **goals**, not currently implemented or guaranteed on every platform.
+The USB and partition workflows are previews. Image selection, formatting, deletion, resizing, writing, mount/unmount and eject are **Not Yet Available**. Refresh reloads local fixtures; it never scans hardware. Browser preview clearly reports that native IPC is unavailable.
 
 ## Design principles
 
-1. **Function over decoration.** Clear layouts, readable data, accessible controls and restrained motion.
-2. **Never surprise the user.** Show which physical device will be affected, what will change and whether data can be lost.
-3. **Default to read-only.** Discovery and inspection should not require elevated privileges.
-4. **Respect each OS.** Share one UI while preserving native menus, dialogs and platform-specific capability reporting.
-5. **No pretend success.** Show unavailable operations honestly and distinguish simulated fixtures from real hardware.
+1. **Function over decoration.** Readable data, compact layouts and restrained visual hierarchy.
+2. **Never surprise the user.** Show the physical target and consequences before any future change.
+3. **Default to read-only.** Discovery and inspection must remain unprivileged.
+4. **Respect each OS.** Shared UI with native menus and explicit platform capabilities.
+5. **No pretend success.** Simulated devices are labelled; unavailable work cannot report success.
 
-## Planned technology
+## Technology
 
-| Layer | Technology |
-| --- | --- |
-| Desktop shell | Tauri 2 |
-| User interface | React + TypeScript + Vite |
-| Styling | Tailwind CSS and shadcn/ui |
-| Icons | Lucide |
-| Disk logic | Rust |
-| Elevated operations | Small, carefully scoped platform-specific helper (planned) |
-| Target platforms | Windows, macOS and Linux |
+| Layer         | Implementation                                                     |
+| ------------- | ------------------------------------------------------------------ |
+| Desktop shell | Tauri 2; Rust 2.12.4 / CLI 2.12.3 in current lockfiles             |
+| Interface     | React 19, TypeScript, Vite                                         |
+| Design system | Tailwind CSS v4, official shadcn/ui Radix Nova integration, Lucide |
+| State         | React state/hooks; no extra global store                           |
+| Disk domain   | Shared Rust crates in one Cargo workspace                          |
+| Tests         | Vitest, React Testing Library, Playwright, axe, Rust unit tests    |
+| Packaging     | Windows MSI/NSIS built locally; unsigned development artifacts     |
+
+The frontend follows the [official shadcn Vite integration](https://ui.shadcn.com/docs/installation/vite). Menus use [Tauri 2 native menu APIs](https://v2.tauri.app/learn/window-menu/), not an HTML imitation of a system menu bar.
+
+## Development tools
+
+- Node.js **24 LTS** and **pnpm 12.14.0** (`npm install --global pnpm@12.14.0`).
+- Current stable Rust via [rustup](https://rustup.rs/), including `rustfmt` and `clippy`.
+- Git and the platform prerequisites below.
+- Google Chrome for optional browser/e2e checks (the Playwright config uses the installed `chrome` channel).
+
+See the current [official Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) if your OS packages differ.
+
+### Windows
+
+Install Visual Studio 2022 Build Tools with **Desktop development with C++**, the MSVC x64/x86 toolchain and a Windows SDK. Install Microsoft Edge WebView2 Runtime if it is absent. Use the Rust MSVC host toolchain (`stable-x86_64-pc-windows-msvc`).
+
+The application itself requires no administrator privileges. If PowerShell blocks the package-manager script, use `pnpm.cmd` instead of `pnpm`; no execution-policy change is necessary.
+
+### macOS
+
+Install Xcode Command Line Tools with `xcode-select --install`, then Node, pnpm and stable Rust. Build on macOS for native macOS artifacts. Signing/notarization is a future release task. Menu implementation is present, but its macOS runtime behavior has not been verified on this Windows development host.
+
+### Linux
+
+For Ubuntu 24.04/Debian-family development environments:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+  libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev
+```
+
+Install equivalent packages on other distributions, plus Node, pnpm, stable Rust and a working desktop/font environment. Linux compilation and GUI behavior have not been verified locally.
+
+## Install, develop and build
+
+From the repository root:
+
+```sh
+pnpm install
+pnpm dev             # real Tauri desktop app
+pnpm build           # production frontend only
+pnpm build:desktop   # native executable and installers for the host OS
+```
+
+Equivalent native commands from the app directory:
+
+```sh
+cd apps/desktop
+pnpm tauri dev
+pnpm tauri build
+```
+
+`pnpm --filter @diskvio/desktop dev` starts only the browser preview at `http://127.0.0.1:1420`. Native menus/IPC require the Tauri app. Port 1420 must be free before starting a new development server.
+
+Workspace builds go to the **root** `target/` directory. Windows output:
+
+```text
+target/release/diskvio.exe
+target/release/bundle/msi/Diskvio_2.0.0_x64_en-US.msi
+target/release/bundle/nsis/Diskvio_2.0.0_x64-setup.exe
+```
+
+These are unsigned development builds, not production releases. Installer execution and clean-machine installation have not been tested.
+
+## Checks
+
+```sh
+pnpm check
+pnpm lint
+pnpm test
+pnpm build
+cargo fmt --all --check
+cargo check --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+pnpm --filter @diskvio/desktop test:e2e
+```
+
+Windows results: **14 frontend tests, 12 Rust tests and 6 browser runs pass**, as do typechecking, lint, formatting, strict Clippy and production/native builds. The actual Windows WebView rendered and returned Rust application information through IPC. Native menu click-through, macOS/Linux runtime behavior and installer execution remain unverified. See [the verification record](docs/VERIFICATION.md) for exact coverage, failures fixed and limitations.
+
+The GitHub Actions matrix is configured for Windows/macOS/Linux. Its remote status is separate from local verification.
 
 ## Repository layout
 
 ```text
 Diskvio/
-├── .github/workflows/          # Future CI and release workflows
-├── apps/
-│   └── desktop/                # Future Tauri 2 + React application
+├── .github/workflows/ci.yml
+├── apps/desktop/
+│   ├── src/
+│   │   ├── components/          # Shell, shared states, shadcn primitives
+│   │   ├── features/            # Disks, partitions, USB, settings
+│   │   ├── fixtures/            # Demonstration devices
+│   │   ├── hooks/               # Async state and theme
+│   │   ├── lib/                 # Capacity/layout helpers
+│   │   ├── models/              # Typed frontend contracts
+│   │   ├── services/            # Fixtures and native IPC
+│   │   └── test/                # Vitest setup; tests live beside code
+│   ├── src-tauri/               # Rust shell, menus, capabilities, icons
+│   ├── e2e/                    # Browser and optional native smoke checks
+│   └── public/                 # Local brand asset
 ├── crates/
-│   ├── diskvio-core/           # Shared device models, validation and safety logic
-│   ├── diskvio-platform/       # OS-specific discovery and disk capabilities
-│   └── diskvio-helper/         # Planned narrow privileged operations helper
-├── assets/
-│   └── branding/               # Icons and other design assets
-├── docs/
-│   ├── ARCHITECTURE.md
-│   └── SAFETY.md
-├── .gitignore
-├── LICENSE
-└── README.md
+│   ├── diskvio-core/           # Pure models and validation
+│   ├── diskvio-platform/       # Default-deny platform boundary
+│   └── diskvio-helper/         # Inactive, non-privileged placeholder
+├── assets/branding/            # Original icon source
+├── docs/                       # Architecture, safety, verification
+├── Cargo.toml / Cargo.lock
+├── package.json / pnpm-lock.yaml
+└── pnpm-workspace.yaml
 ```
 
-Empty directories are retained with `.gitkeep` files until their implementations are added.
-
-## Getting started
-
-You can clone the foundation now:
-
-```bash
-git clone https://github.com/louisboii747/Diskvio.git
-cd Diskvio
-```
-
-**There is no build command yet.** The next milestone is to scaffold the Tauri 2 application inside `apps/desktop/` and initialise the Rust workspace. After that, this section will include tested development and build steps.
-
-For the intended boundaries between UI and disk operations, read [Architecture](docs/ARCHITECTURE.md) and [Safety principles](docs/SAFETY.md).
+Read [Architecture](docs/ARCHITECTURE.md) and [Safety](docs/SAFETY.md) before extending the native backend.
 
 ## Roadmap
 
 - [x] Repository structure, README, licence and ignore rules
-- [ ] Tauri 2 + React + TypeScript application foundation
-- [ ] Accessible disk-list and partition-layout interface using explicitly marked fixture data
-- [ ] Native macOS menu bar, keyboard shortcuts and platform dialogs
+- [x] Tauri 2 + React + TypeScript application foundation
+- [x] Accessible disk-list and partition-layout interface using explicitly marked fixtures
+- [x] Functional navigation, device selection and persisted light/dark/system themes
+- [x] Rust models, validation, platform stubs and non-privileged helper placeholder
+- [x] Native menu implementation and frontend event routing
+- [x] Windows executable/installer builds and automated check configuration
+- [ ] Native menu click-through verification on Windows, macOS and Linux
+- [ ] Native file dialogs and image validation
 - [ ] Read-only real-device discovery on Windows, macOS and Linux
-- [ ] Device identity revalidation, capability checks and privilege boundaries
+- [ ] Strong device identity revalidation, capability checks and privilege boundaries
 - [ ] Carefully tested destructive disk and removable-media operations
-- [ ] Packaging, CI and releases
+- [ ] Signed releases and clean-machine packaging verification
+
+**Milestone 2:** begin with safe read-only discovery, stable device identities, capability reporting and platform integration tests. Destructive operations remain out of scope until the safety gates are implemented and reviewed.
 
 ## Licence
 

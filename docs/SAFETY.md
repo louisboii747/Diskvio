@@ -1,6 +1,6 @@
 # Disk operation safety principles
 
-Diskvio deals with operations that can irreversibly remove user data. The following are **requirements for future implementation**, not assurances of functionality in the current empty scaffold.
+Diskvio deals with operations that can irreversibly remove user data. Milestone 1 uses explicitly labelled local demonstration fixtures only. The following remain **requirements for future disk operations**, not assurances that those operations are implemented.
 
 ## Default behaviour
 
@@ -31,3 +31,13 @@ Keep ordinary UI and read-only operations unprivileged. Use OS-supported authori
 - Document platform-specific limitations before enabling any action in production.
 
 No destructive disk operation has been implemented in this repository yet.
+
+## Milestone 1 enforcement
+
+- The only registered application IPC command is `get_app_info`, which returns metadata and unavailable capabilities.
+- The platform adapter performs no discovery and denies every disk capability.
+- Destructive buttons and native menu items are disabled. Refresh reloads local fixtures only.
+- The helper is a non-privileged placeholder, rejects all arguments, and is not bundled or launched by the desktop app.
+- No shell, filesystem, opener or file-dialog plugin is installed. Main-window permissions allow only event subscription and cleanup.
+- No elevation, administrator startup requirement, raw disk access, mount/unmount or eject code exists.
+- Tests exercise fixtures and pure models; they do not inspect or modify developer storage.
