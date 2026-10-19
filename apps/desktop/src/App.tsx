@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AppShell } from '@/components/layout/app-shell'
-import { pageTitles, type Page } from '@/models/navigation'
+import type { Page } from '@/models/navigation'
 import { DemoNotice } from '@/components/demo-notice'
 import { ResourceState } from '@/components/resource-state'
 import { DiskOverview } from '@/features/disks/disk-overview'
@@ -14,10 +14,10 @@ import { getAppInfo, subscribeToMenu } from '@/services/native'
 import '@/index.css'
 
 const descriptions: Record<Page, string> = {
-  overview: 'A clear view of your storage, from physical device to partition.',
-  partitions: 'Inspect how space is allocated across a device.',
-  usb: 'Prepare bootable media with a clear, deliberate workflow.',
-  settings: 'Make Diskvio feel at home on your desktop.',
+  overview: 'Choose a drive to see its space and partitions.',
+  partitions: 'A partition is a separate section of a drive.',
+  usb: 'Put an operating system on a USB drive.',
+  settings: 'Choose how Diskvio looks on your computer.',
 }
 export default function App() {
   const [page, setPage] = useState<Page>('overview')
@@ -59,41 +59,33 @@ export default function App() {
   const nativeStatus =
     info.status === 'ready'
       ? info.data
-        ? `Tauri connected · ${info.data.platform}`
-        : 'Browser preview · native IPC unavailable'
+        ? 'Desktop app connected'
+        : 'Browser preview'
       : info.status === 'error'
-        ? 'Native connection unavailable'
-        : 'Connecting to native backend…'
+        ? 'Desktop app disconnected'
+        : 'Connecting to the desktop app...'
   const status =
     devices.status === 'loading'
-      ? 'Loading local demo data…'
+      ? 'Loading sample drives...'
       : devices.status === 'error'
-        ? 'Demo data unavailable'
+        ? 'Could not load sample drives'
         : refreshCount
-          ? 'Demonstration data reloaded · no hardware scan'
-          : 'Demonstration mode · no disk operations'
+          ? 'Sample drives reloaded'
+          : 'Demo mode'
   return (
     <AppShell
       page={page}
+      description={descriptions[page]}
       navigate={navigate}
       refresh={refresh}
       loading={devices.status === 'loading'}
       status={status}
       nativeStatus={nativeStatus}
     >
-      <div className="page-heading">
-        <div>
-          <div className="eyebrow">DISKVIO WORKSPACE</div>
-          <h1 id="page-title" tabIndex={-1}>
-            {pageTitles[page]}
-          </h1>
-          <p>{descriptions[page]}</p>
-        </div>
-        <span className="milestone-label">MILESTONE 01</span>
-      </div>
       {menuError && (
         <div role="alert" className="error-banner">
-          Native menu connection failed: {menuError}. Use sidebar navigation.
+          The app menu couldn't connect. You can use the buttons on the left.
+          <span className="error-detail">{menuError}</span>
         </div>
       )}
       {page !== 'settings' && <DemoNotice />}

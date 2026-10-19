@@ -1,4 +1,4 @@
-import { FileImage, Usb, ShieldCheck, ArrowRight } from 'lucide-react'
+import { FileImage, Usb, ShieldCheck, LockKeyhole } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatCapacity } from '@/lib/capacity'
 import type { Disk } from '@/models/disk'
@@ -13,89 +13,78 @@ export function UsbScreen({
 }) {
   const removable = disks.filter((d) => d.kind === 'removable')
   return (
-    <div className="usb-layout">
-      <section className="panel usb-workflow">
-        <div className="section-title">
-          <h2>Write a bootable USB</h2>
-          <span className="scheme-tag">Not Yet Available</span>
-        </div>
-        <p className="intro-copy">
-          A preview of the planned workflow. Image selection and writing are unavailable in
-          Milestone 1.
-        </p>
-        <div className="workflow-step">
-          <span className="step-number">01</span>
-          <div>
-            <h3>Choose an image</h3>
-            <p>Select an operating system image to write.</p>
+    <section className="panel usb-panel">
+      <div className="section-title">
+        <h2>Make a bootable USB drive</h2>
+        <span className="scheme-tag">Coming later</span>
+      </div>
+      <p className="intro-copy">
+        Use a USB drive to install an operating system, such as Windows or Linux.
+      </p>
+      <div className="usb-steps">
+        <section className="usb-step">
+          <div className="step-heading">
+            <span className="step-number">1</span>
+            <h3>Choose a file</h3>
           </div>
-        </div>
-        <div className="image-placeholder">
-          <FileImage size={30} />
-          <strong>No image selected</strong>
-          <span>ISO / IMG support is planned</span>
-          <Button disabled variant="outline" size="sm">
-            Choose image — Not Yet Available
+          <div className="step-body">
+            <FileImage size={32} />
+            <strong>No file chosen</strong>
+            <p>You'll need an ISO or IMG file for the system you want to install.</p>
+          </div>
+          <Button disabled variant="outline">
+            Choose file
           </Button>
-        </div>
-        <div className="workflow-step">
-          <span className="step-number">02</span>
-          <div>
-            <h3>Review the target</h3>
-            <p>Only simulated removable devices are shown.</p>
+        </section>
+        <section className="usb-step">
+          <div className="step-heading">
+            <span className="step-number">2</span>
+            <h3>Choose a USB drive</h3>
           </div>
-        </div>
-        <label className="usb-target-label" htmlFor="usb-target">
-          Demonstration target
-        </label>
-        <select
-          id="usb-target"
-          value={removable.some((d) => d.id === selectedId) ? selectedId : ''}
-          onChange={(event) => select(event.target.value)}
-        >
-          <option value="" disabled>
-            Select a simulated USB device
-          </option>
-          {removable.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name} · {formatCapacity(d.capacityBytes)} · {d.serial}
-            </option>
-          ))}
-        </select>
-        {removable.length === 0 && (
-          <p role="status">No removable demonstration devices are available.</p>
-        )}
-        <div className="workflow-step">
-          <span className="step-number">03</span>
-          <div>
-            <h3>Confirm and write</h3>
-            <p>Future writes will erase the selected target.</p>
+          <div className="step-body">
+            <Usb size={32} />
+            <label htmlFor="usb-target">Sample USB drive</label>
+            <select
+              id="usb-target"
+              value={removable.some((d) => d.id === selectedId) ? selectedId : ''}
+              onChange={(event) => select(event.target.value)}
+            >
+              <option value="" disabled>
+                Choose a drive
+              </option>
+              {removable.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} · {formatCapacity(d.capacityBytes)}
+                </option>
+              ))}
+            </select>
+            <p>
+              {removable.length
+                ? 'You can try choosing a sample drive.'
+                : 'No sample USB drives to show.'}
+            </p>
           </div>
-        </div>
-        <Button disabled className="write-button">
-          <Usb size={16} />
-          Write image
-          <ArrowRight size={16} />
-        </Button>
-        <p className="map-note">Not Yet Available. No files are opened and no data is written.</p>
-      </section>
-      <aside className="panel usb-guidance">
-        <ShieldCheck size={25} />
-        <h2>A deliberate process</h2>
-        <p>
-          Writing an image replaces data on the target device. The future writer must make every
-          consequence clear before it begins.
-        </p>
-        <ul>
-          <li>Identify the exact physical device</li>
-          <li>Recheck its identity before writing</li>
-          <li>Require an explicit erase confirmation</li>
-          <li>Report verification and failures honestly</li>
-        </ul>
-        <div className="guidance-note">
-          These safeguards describe the planned implementation. Writing remains disabled.
-        </div>
-      </aside>
-    </div>
+          <span className="step-caption">Sample drives only</span>
+        </section>
+        <section className="usb-step">
+          <div className="step-heading">
+            <span className="step-number">3</span>
+            <h3>Write to USB</h3>
+          </div>
+          <div className="step-body">
+            <ShieldCheck size={32} />
+            <strong>Check before writing</strong>
+            <p>
+              Writing will replace all files on the USB drive. You'll need to confirm this first.
+            </p>
+          </div>
+          <Button disabled>Write to USB</Button>
+        </section>
+      </div>
+      <div className="usb-footer availability-note">
+        <LockKeyhole size={16} />
+        <span>Choosing files and writing to USB aren't available yet.</span>
+      </div>
+    </section>
   )
 }

@@ -31,10 +31,10 @@
 
 ## What works today
 
-- A compact desktop workspace with Disk Overview, Partitions, USB Writer and Settings.
+- Compact Drives, Partitions, USB Writer and Settings pages with plain-language labels. All page content fits the supported desktop window without scrolling.
 - Three explicitly simulated physical disks, selectable device details, capacity/usage information, filesystem and mount labels.
 - Byte-proportional partition maps, including unallocated space and readable tables for small system partitions.
-- Light, dark and system themes; persisted preference, keyboard navigation, focus indicators and reduced-motion support.
+- A theme picker with System, Light, Dark, Ocean, Forest and Sand; saved preferences, keyboard navigation and reduced-motion support.
 - A real Rust `get_app_info` command connected through Tauri IPC.
 - Native menu groundwork with demonstration refresh, navigation, Settings, About and Quit; unavailable operations are disabled.
 - Shared Rust domain models, validation, platform capability stubs and an inactive non-privileged helper.
@@ -140,7 +140,7 @@ cargo test --workspace
 pnpm --filter @diskvio/desktop test:e2e
 ```
 
-Windows results: **14 frontend tests, 12 Rust tests and 6 browser runs pass**, as do typechecking, lint, formatting, strict Clippy and production/native builds. The actual Windows WebView rendered and returned Rust application information through IPC. Native menu click-through, macOS/Linux runtime behavior and installer execution remain unverified. See [the verification record](docs/VERIFICATION.md) for exact coverage, failures fixed and limitations.
+Windows results: **14 frontend tests, 12 Rust tests and 14 browser runs pass**, as do typechecking, lint, formatting, strict Clippy and production/native builds. The actual Windows WebView rendered and returned Rust application information through IPC. Native menu click-through, macOS/Linux runtime behavior and installer execution remain unverified. See [the verification record](docs/VERIFICATION.md) for exact coverage, failures fixed and limitations.
 
 The GitHub Actions matrix is configured for Windows/macOS/Linux. Its remote status is separate from local verification.
 
@@ -180,7 +180,7 @@ Read [Architecture](docs/ARCHITECTURE.md) and [Safety](docs/SAFETY.md) before ex
 - [x] Repository structure, README, licence and ignore rules
 - [x] Tauri 2 + React + TypeScript application foundation
 - [x] Accessible disk-list and partition-layout interface using explicitly marked fixtures
-- [x] Functional navigation, device selection and persisted light/dark/system themes
+- [x] Functional navigation, device selection and a persisted theme picker
 - [x] Rust models, validation, platform stubs and non-privileged helper placeholder
 - [x] Native menu implementation and frontend event routing
 - [x] Windows executable/installer builds and automated check configuration

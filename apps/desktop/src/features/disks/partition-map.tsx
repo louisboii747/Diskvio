@@ -3,11 +3,17 @@ import type { Disk } from '@/models/disk'
 export function PartitionMap({ disk }: { disk: Disk }) {
   const segments = partitionSegments(disk)
   return (
-    <div className="partition-map">
+    <figure className="partition-map">
+      <figcaption>
+        <strong>Drive layout</strong>
+        <span>
+          {disk.partitions.length} {disk.partitions.length === 1 ? 'partition' : 'partitions'}
+        </span>
+      </figcaption>
       <div
         className="partition-bar"
         role="img"
-        aria-label={`Partition layout for ${disk.name}: ${segments.map((s) => `${s.name} ${formatCapacity(s.capacityBytes)} (${s.percent.toFixed(1)}%)`).join(', ')}`}
+        aria-label={`Partition layout for ${disk.name}: ${segments.map((s) => `${s.partition ? s.name : 'Unassigned space'} ${formatCapacity(s.capacityBytes)} (${s.percent.toFixed(1)}%)`).join(', ')}`}
       >
         {segments.map((segment) => (
           <div
@@ -15,7 +21,7 @@ export function PartitionMap({ disk }: { disk: Disk }) {
             data-segment={segment.id}
             className={`partition-segment partition-color-${segment.colorIndex}`}
             style={{ width: `${segment.percent}%` }}
-            title={`${segment.name}: ${formatCapacity(segment.capacityBytes)}`}
+            title={`${segment.partition ? segment.name : 'Unassigned space'}: ${formatCapacity(segment.capacityBytes)}`}
           >
             {segment.percent > 12 && (
               <>
@@ -26,18 +32,6 @@ export function PartitionMap({ disk }: { disk: Disk }) {
           </div>
         ))}
       </div>
-      <div className="partition-legend">
-        {segments.map((segment) => (
-          <span key={segment.id}>
-            <i className={`partition-color-${segment.colorIndex}`} />
-            {segment.name}
-            <small>{formatCapacity(segment.capacityBytes)}</small>
-          </span>
-        ))}
-      </div>
-      <p className="map-note">
-        Segments are proportional to capacity. Small system partitions are listed below.
-      </p>
-    </div>
+    </figure>
   )
 }

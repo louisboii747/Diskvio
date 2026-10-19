@@ -1,8 +1,9 @@
-import { Monitor, Moon, Sun, ShieldCheck } from 'lucide-react'
+import { Check, Monitor, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { Theme } from '@/hooks/use-theme'
+import { themes, type Theme } from '@/models/themes'
 import type { Resource } from '@/hooks/use-resource'
 import type { AppInfo } from '@/services/native'
+const platformNames: Record<string, string> = { windows: 'Windows', macos: 'macOS', linux: 'Linux' }
 export function SettingsScreen({
   theme,
   setTheme,
@@ -15,39 +16,64 @@ export function SettingsScreen({
   retry: () => void
 }) {
   return (
-    <div className="settings-stack">
+    <div className="settings-layout">
       <section className="panel settings-panel">
-        <h2>Appearance</h2>
-        <p>Choose a theme for your workspace. Your preference is saved on this device.</p>
-        <div className="theme-options" role="group" aria-label="Theme">
-          {(
-            [
-              { id: 'light', icon: Sun, label: 'Light' },
-              { id: 'dark', icon: Moon, label: 'Dark' },
-              { id: 'system', icon: Monitor, label: 'System' },
-            ] as const
-          ).map(({ id, icon: Icon, label }) => (
-            <Button
-              key={id}
-              variant={theme === id ? 'secondary' : 'outline'}
-              aria-pressed={theme === id}
-              onClick={() => setTheme(id)}
+        <h2>Choose a theme</h2>
+        <p>Pick the look you like. Diskvio remembers your choice.</p>
+        <fieldset className="theme-picker">
+          <legend className="sr-only">Theme</legend>
+          {themes.map((option) => (
+            <label
+              key={option.id}
+              className={`theme-choice${theme === option.id ? ' theme-selected' : ''}`}
             >
-              <Icon size={18} />
-              {label}
-            </Button>
+              <input
+                type="radio"
+                name="theme"
+                value={option.id}
+                checked={theme === option.id}
+                onChange={() => setTheme(option.id)}
+                aria-label={option.name}
+              />
+              <span
+                className="theme-preview"
+                data-theme={option.id === 'system' ? 'light' : option.id}
+                aria-hidden="true"
+              >
+                <span className="preview-sidebar">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span className="preview-content">
+                  <i />
+                  <span>
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                </span>
+                {option.id === 'system' && <Monitor size={16} />}
+              </span>
+              <span className="theme-label">
+                <strong>{option.name}</strong>
+                {theme === option.id && <Check size={14} />}
+              </span>
+              <span className="theme-description">{option.description}</span>
+            </label>
           ))}
-        </div>
+        </fieldset>
       </section>
-      <section className="panel settings-panel">
+      <section className="panel settings-panel about-panel">
         <h2>About Diskvio</h2>
-        <p>Disk management, without the guesswork.</p>
-        {info.status === 'loading' && <p role="status">Connecting to the native application…</p>}
+        <p>See your drives and how they use space.</p>
+        {info.status === 'loading' && <p role="status">Connecting to the desktop app...</p>}
         {info.status === 'error' && (
-          <div role="alert">
-            <p>Native application information is unavailable: {info.message}</p>
+          <div className="connection-error" role="alert">
+            <p>We couldn't connect to the desktop app.</p>
+            <p className="error-detail">{info.message}</p>
             <Button variant="outline" onClick={retry}>
-              Retry connection
+              Try again
             </Button>
           </div>
         )}
@@ -55,49 +81,39 @@ export function SettingsScreen({
           (info.data ? (
             <dl className="about-details">
               <div>
-                <dt>Version</dt>
-                <dd>{info.data.version} · Milestone 1</dd>
+                <dt>Running on</dt>
+                <dd>{platformNames[info.data.platform] ?? info.data.platform}</dd>
               </div>
               <div>
-                <dt>Native platform</dt>
-                <dd>{info.data.platform}</dd>
+                <dt>Desktop app</dt>
+                <dd>Connected</dd>
               </div>
               <div>
-                <dt>Backend connection</dt>
-                <dd>Connected through Tauri IPC</dd>
+                <dt>Drives shown</dt>
+                <dd>Sample drives</dd>
               </div>
               <div>
-                <dt>Data source</dt>
-                <dd>Local demonstration fixtures</dd>
-              </div>
-              <div>
-                <dt>Disk capabilities</dt>
+                <dt>Drive changes</dt>
                 <dd>
                   {Object.values(info.data.capabilities).some(Boolean)
-                    ? 'Unexpected capability response'
-                    : 'All unavailable'}
+                    ? 'Unavailable in this demo'
+                    : 'Not available yet'}
                 </dd>
               </div>
             </dl>
           ) : (
-            <div className="guidance-note">
-              Browser preview. Native application information and system menus are available only in
-              the Tauri desktop app.
+            <div className="browser-note">
+              You're using the browser preview. Open the desktop app to use its menus.
             </div>
           ))}
-        <p className="license-copy">
-          Open source · MIT License · Windows, macOS and Linux architecture
-        </p>
-      </section>
-      <section className="action-panel">
-        <ShieldCheck size={22} />
-        <div>
-          <strong>Default-deny safety model</strong>
-          <p>
-            No real-device discovery, disk writes, privilege escalation or arbitrary shell
-            execution.
-          </p>
+        <div className="safety-note">
+          <ShieldCheck size={20} />
+          <div>
+            <strong>Your files stay untouched</strong>
+            <p>This demo uses sample drives. You can't change or erase a drive.</p>
+          </div>
         </div>
+        <p className="license-copy">Free and open source · MIT License</p>
       </section>
     </div>
   )

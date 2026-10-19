@@ -10,14 +10,14 @@ export function PartitionTable({ disk }: { disk: Disk }) {
       tabIndex={0}
     >
       <table className="partition-table">
-        <caption className="sr-only">Partitions on {disk.name}, demonstration data</caption>
+        <caption className="sr-only">Partitions on {disk.name}, sample data</caption>
         <thead>
           <tr>
             <th scope="col">Partition</th>
-            <th scope="col">Filesystem</th>
-            <th scope="col">Mount</th>
+            <th scope="col">File system</th>
+            <th scope="col">Location</th>
             <th scope="col" className="numeric">
-              Capacity
+              Size
             </th>
             <th scope="col" className="numeric">
               Used
@@ -27,13 +27,13 @@ export function PartitionTable({ disk }: { disk: Disk }) {
         <tbody>
           {disk.partitions.map((p, index) => (
             <tr key={p.id}>
-              <th scope="row">
+              <th scope="row" title={p.name}>
                 <i className={`table-swatch partition-color-${index % 4}`} />
-                {p.name}
+                {p.name === 'EFI System' ? 'Startup files' : p.name}
               </th>
-              <td>{p.filesystem ?? '—'}</td>
+              <td>{p.filesystem ?? 'None'}</td>
               <td>
-                <code>{p.mountPoint ?? '—'}</code>
+                <code>{p.mountPoint ?? 'None'}</code>
               </td>
               <td className="numeric">{formatCapacity(p.capacityBytes)}</td>
               <td className="numeric">{formatCapacity(p.usedBytes)}</td>
@@ -43,12 +43,12 @@ export function PartitionTable({ disk }: { disk: Disk }) {
             <tr>
               <th scope="row">
                 <i className="table-swatch partition-color--1" />
-                Unallocated
+                Unassigned space
               </th>
-              <td>—</td>
-              <td>—</td>
+              <td>None</td>
+              <td>None</td>
               <td className="numeric">{formatCapacity(unallocated)}</td>
-              <td className="numeric">—</td>
+              <td className="numeric">0 B</td>
             </tr>
           )}
         </tbody>

@@ -15,14 +15,16 @@ Environment: Windows x64, Node 24.16.0, pnpm 12.14.0, Rust/Cargo 1.99.0, Tauri R
 | `cargo check --workspace`                               | Passed on Windows                                                                                          |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Passed                                                                                                     |
 | `cargo test --workspace`                                | Passed: 12 tests plus doc-test targets                                                                     |
-| `pnpm --filter @diskvio/desktop test:e2e`               | Passed: six Chrome runs                                                                                    |
+| `pnpm --filter @diskvio/desktop test:e2e`               | Passed: fourteen Chrome runs                                                                               |
 | `pnpm tauri build` from `apps/desktop`                  | Passed: Windows executable, MSI and NSIS installers                                                        |
 | `pnpm tauri dev` from `apps/desktop`                    | Compiled and started the native process; a responding Diskvio window was observed through process metadata |
 | `node e2e/native-smoke.mjs` from `apps/desktop`         | Passed against the actual Windows WebView with real Rust IPC                                               |
 
 The final standalone release executable also passed `node e2e/native-smoke.mjs --packaged` with the development server stopped. Its bundled frontend rendered and Rust IPC connected under the production CSP.
 
-The browser runs cover both themes at 1240, 800 and 390 px, every screen, selection, proportional partition widths, skip-link keyboard access, reduced motion, persistence and horizontal overflow. Axe reports no WCAG A/AA violations for the tested screens. This is automated coverage, not a complete accessibility certification.
+The interface refresh also passed the packaged smoke check: all four pages fit the native window without scrolling, the Ocean theme survived a reload, and the app kept disk changes disabled. Screenshots of the theme picker, drive view and USB steps were inspected. The interface and native About metadata no longer show development-stage or version branding; internal package versions remain available for builds.
+
+The browser suite checks all six theme choices at 1240 × 740 and 800 × 540. It checks each page for vertical and horizontal overflow and content cutoffs, plus selection, proportional partition widths, theme persistence, keyboard radio selection and system appearance changes. A separate 390 px browser check covers navigation and accessibility with readable scrolling content. Axe reports no WCAG A/AA violations for the tested screens. This is automated coverage, not a complete accessibility certification.
 
 Rust covers capacity formatting, bounds/overflow, overlapping partitions, duplicate/missing identities, usage bounds, changed devices, the shared JSON fixture contract, disabled platform capabilities and application metadata. Frontend tests cover navigation, selection preservation, unavailable actions, native menu event routing/cleanup, refresh, loading/empty/error recovery, IPC failure and theme persistence.
 
@@ -32,7 +34,7 @@ Failures discovered and fixed: effect-driven redundant loading update, test typi
 
 The desktop inspection tool could not connect: `Computer Use native pipe is unavailable ... The system cannot find the file specified. (os error 2)`. We therefore did **not** verify menu clicks, About or Quit through OS UI automation.
 
-A separate smoke run attached Playwright to the actual app's temporary WebView2 debug endpoint. The rendered Settings screen showed version 2.0.0, platform windows, “Connected through Tauri IPC” and “All unavailable”. Menu listener registration succeeded without a permission error. This was the native webview, not a browser mock. A screenshot was inspected. The debug port and test profile are launch-time environment settings only; neither is enabled in the shipped configuration.
+A separate smoke run attached Playwright to the actual app's temporary WebView2 debug endpoint. The rendered Settings screen showed Windows, “Connected”, “Sample drives” and “Not available yet”. Menu listener registration succeeded without a permission error. This was the native webview, not a browser mock. A screenshot was inspected. The debug port and test profile are launch-time environment settings only; neither is enabled in the shipped configuration.
 
 The native smoke script expects exactly one test webview at port 9223 and a local Vite server at port 1420. It is optional, not run by ordinary tests or CI. For a deliberate local Windows smoke run, close existing test instances, then:
 

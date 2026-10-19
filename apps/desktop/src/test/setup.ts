@@ -5,6 +5,7 @@ afterEach(() => {
   cleanup()
   localStorage.clear()
   document.documentElement.classList.remove('dark')
+  delete document.documentElement.dataset.theme
 })
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

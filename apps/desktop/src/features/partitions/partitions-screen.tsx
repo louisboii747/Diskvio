@@ -13,44 +13,39 @@ export function PartitionsScreen({
   select: (id: string) => void
 }) {
   return (
-    <div className="feature-stack">
-      <section className="panel">
-        <div className="section-title">
-          <h2>Partition inspector</h2>
-          <label className="device-picker">
-            Device
-            <select value={selected.id} onChange={(event) => select(event.target.value)}>
-              {disks.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="partition-intro">
-          <strong>{selected.model}</strong>
-          <span>
-            {selected.partitionScheme} · {selected.partitions.length} partitions · simulated device
-          </span>
-        </div>
-        <PartitionMap disk={selected} />
-        <PartitionTable disk={selected} />
-      </section>
-      <section className="panel planned-actions">
+    <section className="panel partitions-panel">
+      <div className="section-title">
         <div>
-          <LockKeyhole size={20} />
-          <h2>Partition operations</h2>
-          <span className="scheme-tag">Not Yet Available</span>
+          <h2>{selected.name}</h2>
+          <p>
+            {selected.model} · {selected.partitionScheme}
+          </p>
         </div>
-        <p>
-          Future operations will require capability checks, target identity revalidation and
-          explicit confirmation. No operation can be performed in this milestone.
-        </p>
+        <label className="device-picker">
+          Drive
+          <select value={selected.id} onChange={(event) => select(event.target.value)}>
+            {disks.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <PartitionMap disk={selected} />
+      <PartitionTable disk={selected} />
+      <p className="table-help">
+        The file system controls how a partition stores files. Location shows where you can open it.
+      </p>
+      <div className="planned-actions">
+        <div className="availability-note">
+          <LockKeyhole size={16} />
+          <span>Changing partitions isn't available yet.</span>
+        </div>
         <div className="button-row">
           <Button disabled variant="outline">
             <Plus />
-            Create partition
+            Create
           </Button>
           <Button disabled variant="outline">
             <Eraser />
@@ -65,7 +60,7 @@ export function PartitionsScreen({
             Delete
           </Button>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   )
 }

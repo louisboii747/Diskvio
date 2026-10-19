@@ -28,20 +28,20 @@ describe('Diskvio workspace', () => {
   it('labels demo data and preserves selected disk across navigation and refresh', async () => {
     const user = userEvent.setup()
     render(<App />)
-    expect(screen.getByText('DEMO DATA / SIMULATED DEVICES')).toBeVisible()
+    expect(screen.getByText('DEMO DATA')).toBeVisible()
     await user.click(await screen.findByRole('button', { name: 'Select Archive' }))
     expect(screen.getByRole('region', { name: 'Selected device' })).toHaveTextContent(
       'Crucial MX500',
     )
     await user.click(nav('Partitions'))
-    expect(screen.getByRole('combobox', { name: 'Device' })).toHaveValue('demo-1')
+    expect(screen.getByRole('combobox', { name: 'Drive' })).toHaveValue('demo-1')
     expect(screen.getByRole('button', { name: 'Format' })).toBeDisabled()
-    await user.click(screen.getByRole('button', { name: 'Refresh demo data' }))
+    await user.click(screen.getByRole('button', { name: 'Reload samples' }))
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Device' })).toHaveValue('demo-1'),
+      expect(screen.getByRole('combobox', { name: 'Drive' })).toHaveValue('demo-1'),
     )
-    expect(screen.getByText('Demonstration data reloaded · no hardware scan')).toBeVisible()
-    await user.click(nav('Disk Overview'))
+    expect(screen.getByText('Sample drives reloaded')).toBeVisible()
+    await user.click(nav('Drives'))
     expect(screen.getByRole('button', { name: 'Select Archive' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -54,10 +54,10 @@ describe('Diskvio workspace', () => {
     await user.click(nav('USB Writer'))
     expect(screen.getByRole('option', { name: /Portable USB/ })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /System Drive/ })).not.toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Demonstration target'), 'demo-2')
-    expect(screen.getByRole('button', { name: 'Write image' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Choose image/ })).toBeDisabled()
-    await user.click(nav('Disk Overview'))
+    await user.selectOptions(screen.getByLabelText('Sample USB drive'), 'demo-2')
+    expect(screen.getByRole('button', { name: 'Write to USB' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Choose file/ })).toBeDisabled()
+    await user.click(nav('Drives'))
     expect(screen.getByRole('button', { name: 'Select Portable USB' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -77,20 +77,20 @@ describe('Diskvio workspace', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(nav('Settings'))
-    await user.click(screen.getByRole('button', { name: 'Dark' }))
+    await user.click(screen.getByRole('radio', { name: 'Dark' }))
     expect(document.documentElement).toHaveClass('dark')
     expect(localStorage.getItem('diskvio-theme')).toBe('dark')
-    expect(await screen.findByText(/Browser preview. Native application/)).toBeVisible()
-    expect(screen.queryByText('Connected through Tauri IPC')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Light' }))
+    expect(await screen.findByText(/browser preview. Open the desktop app/)).toBeVisible()
+    expect(screen.queryByText('Connected')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Light' }))
     expect(document.documentElement).not.toHaveClass('dark')
   })
   it('renders loading, empty and recoverable error states', async () => {
     vi.mocked(devices.loadDemoDisks).mockResolvedValueOnce([])
     const user = userEvent.setup()
     render(<App />)
-    expect(screen.getByRole('heading', { name: 'Loading demonstration devices' })).toBeVisible()
-    expect(await screen.findByRole('heading', { name: 'No demonstration devices' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Loading sample drives' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'No sample drives to show' })).toBeVisible()
     vi.mocked(devices.loadDemoDisks).mockRejectedValueOnce(new Error('Fixture unavailable'))
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Fixture unavailable')
@@ -110,7 +110,7 @@ describe('Diskvio workspace', () => {
       dataMode: 'demo',
       capabilities: { discovery: false, partitionManagement: false, usbWriting: false },
     })
-    await user.click(screen.getByRole('button', { name: 'Retry connection' }))
-    expect(await screen.findByText('Connected through Tauri IPC')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Connected')).toBeVisible()
   })
 })

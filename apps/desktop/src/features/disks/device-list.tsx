@@ -1,4 +1,4 @@
-import { HardDrive, Usb, ChevronRight } from 'lucide-react'
+import { HardDrive, Usb, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCapacity, usedCapacity } from '@/lib/capacity'
 import type { Disk } from '@/models/disk'
@@ -12,13 +12,13 @@ export function DeviceList({
   select: (id: string) => void
 }) {
   return (
-    <section className="device-list" aria-label="Demonstration devices">
+    <section className="device-list" aria-label="Sample drives">
       <div className="panel-heading">
-        <h2>Devices</h2>
-        <span>{disks.length} simulated</span>
+        <h2>Drives</h2>
+        <span>{disks.length} samples</span>
       </div>
       <div className="device-buttons">
-        {disks.map((disk, index) => {
+        {disks.map((disk) => {
           const Icon = disk.kind === 'removable' ? Usb : HardDrive
           const used = usedCapacity(disk)
           return (
@@ -30,27 +30,23 @@ export function DeviceList({
               onClick={() => select(disk.id)}
             >
               <div className="device-top">
-                <Icon size={20} />
-                <span>DISK {index.toString().padStart(2, '0')}</span>
-                <ChevronRight size={14} />
+                <Icon size={18} />
+                <span>{disk.kind === 'removable' ? 'USB drive' : 'Built-in drive'}</span>
+                {selected === disk.id && <Check size={14} />}
               </div>
               <strong>{disk.name}</strong>
               <span className="device-model">{disk.model}</span>
               <div className="device-meta">
-                <span>{disk.kind === 'removable' ? 'Removable' : 'Internal'}</span>
                 <strong>{formatCapacity(disk.capacityBytes)}</strong>
+                <span>{Math.round((used / disk.capacityBytes) * 100)}% used</span>
               </div>
               <div className="usage-track" aria-hidden="true">
                 <span style={{ width: `${(used / disk.capacityBytes) * 100}%` }} />
               </div>
-              <span className="device-usage">
-                {formatCapacity(used)} used · {Math.round((used / disk.capacityBytes) * 100)}%
-              </span>
             </button>
           )
         })}
       </div>
-      <p className="panel-footnote">Only sample devices are listed.</p>
     </section>
   )
 }

@@ -28,7 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "shortDescription": "A safety-first disk utility. Milestone 1 uses demonstration devices only.",
+    "shortDescription": "Explore sample drives and see how they use space.",
     "category": "Utility",
     "windows": {
       "nsis": {

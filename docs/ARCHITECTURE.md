@@ -34,7 +34,7 @@ Rust tests deserialize the actual frontend fixture JSON and validate its layouts
 
 ## Native shell and permissions
 
-The window is 1240 × 820 logical pixels by default, minimum 800 × 600. System decorations remain native. The UI adapts to smaller browser previews as well.
+The window is 1240 × 820 logical pixels by default, minimum 800 × 600. System decorations remain native. The UI fits all page content at a viewport as small as 800 × 540, leaving room for native window controls. At narrow browser widths or enlarged text sizes it allows scrolling so content stays reachable. Settings offers System, Light, Dark, Ocean, Forest and Sand themes through a keyboard-accessible radio picker. The theme hook stores the choice, sets shared CSS tokens and follows OS appearance changes for System. Version numbers and development-stage labels do not appear in the interface or About metadata.
 
 The Rust menu uses Tauri 2 menu builders. macOS gets Diskvio, File, Edit, View, Disk, Partition, USB, Window and Help menus, including application services/hide/quit conventions and explicit Window/Help roles. Windows/Linux use File for Quit and View for Settings. Standard Edit and Window actions use native predefined items. Destructive menu items are disabled.
 

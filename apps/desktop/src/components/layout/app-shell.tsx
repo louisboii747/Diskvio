@@ -1,14 +1,5 @@
 import type { ReactNode } from 'react'
-import {
-  HardDrive,
-  Layers2,
-  Usb,
-  Settings2,
-  RefreshCw,
-  ShieldCheck,
-  ChevronRight,
-  CircleHelp,
-} from 'lucide-react'
+import { HardDrive, Layers2, Usb, Settings2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { pageTitles, type Page } from '@/models/navigation'
@@ -18,9 +9,9 @@ const navigation = [
   { id: 'usb', icon: Usb },
   { id: 'settings', icon: Settings2 },
 ] as const
-
 interface Props {
   page: Page
+  description: string
   navigate: (page: Page) => void
   refresh: () => void
   loading: boolean
@@ -30,6 +21,7 @@ interface Props {
 }
 export function AppShell({
   page,
+  description,
   navigate,
   refresh,
   loading,
@@ -47,11 +39,8 @@ export function AppShell({
           <span className="brand-mark">
             <HardDrive size={21} />
           </span>
-          <span>
-            Diskvio<span className="brand-version">2.0</span>
-          </span>
+          <span>Diskvio</span>
         </div>
-        <div className="sidebar-label">WORKSPACE</div>
         <nav aria-label="Main navigation">
           {navigation.map(({ id, icon: Icon }) => (
             <Button
@@ -63,44 +52,37 @@ export function AppShell({
               aria-current={page === id ? 'page' : undefined}
               onClick={() => navigate(id)}
             >
-              <Icon size={17} />
+              <Icon size={18} />
               <span>{pageTitles[id]}</span>
             </Button>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <ShieldCheck size={18} />
+          <ShieldCheck size={19} />
           <div>
-            <strong>Safe by design</strong>
-            <p>No disk operations enabled</p>
+            <strong>Demo mode</strong>
+            <p>Sample drives only</p>
           </div>
-        </div>
-        <div className="sidebar-build">
-          MILESTONE 01 <span>FOUNDATION</span>
         </div>
       </aside>
       <div className="workspace">
         <header className="toolbar">
-          <div className="breadcrumb">
-            <span>Workspace</span>
-            <ChevronRight size={14} />
-            <strong>{pageTitles[page]}</strong>
+          <div className="page-heading">
+            <h1 id="page-title" tabIndex={-1}>
+              {pageTitles[page]}
+            </h1>
+            <p>{description}</p>
           </div>
-          <div className="toolbar-actions">
-            <span className="demo-chip">DEMO</span>
-            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
-              <RefreshCw size={14} />
-              <span>Refresh demo data</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="About Diskvio"
-              onClick={() => navigate('settings')}
-            >
-              <CircleHelp size={17} />
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Reload samples"
+            onClick={refresh}
+            disabled={loading}
+          >
+            <RefreshCw size={14} />
+            <span>Reload samples</span>
+          </Button>
         </header>
         <main id="main-content" tabIndex={-1}>
           {children}

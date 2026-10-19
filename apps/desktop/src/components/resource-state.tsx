@@ -15,17 +15,19 @@ export function ResourceState({
       <Icon size={28} />
       <h2>
         {kind === 'loading'
-          ? 'Loading demonstration devices'
+          ? 'Loading sample drives'
           : kind === 'empty'
-            ? 'No demonstration devices'
-            : 'Could not load data'}
+            ? 'No sample drives to show'
+            : "We couldn't load the sample drives"}
       </h2>
       <p>
-        {message ??
-          (kind === 'empty'
-            ? 'Refresh to reload the local sample devices.'
-            : 'Reading local fixtures. No hardware scan is performed.')}
+        {kind === 'error'
+          ? 'Try loading them again.'
+          : kind === 'empty'
+            ? 'Reload the samples to try again.'
+            : 'Your drives stay untouched.'}
       </p>
+      {message && <p className="error-detail">{message}</p>}
       {retry && (
         <Button variant="outline" onClick={retry}>
           Try again

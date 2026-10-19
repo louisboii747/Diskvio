@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-export type Theme = 'light' | 'dark' | 'system'
+import { isTheme, themes, type Theme } from '@/models/themes'
 function readTheme(): Theme {
   try {
     const value = localStorage.getItem('diskvio-theme')
-    return value === 'light' || value === 'dark' ? value : 'system'
+    return isTheme(value) ? value : 'system'
   } catch {
     return 'system'
   }
@@ -13,7 +13,9 @@ export function useTheme() {
   useEffect(() => {
     const media = matchMedia('(prefers-color-scheme: dark)')
     const apply = () => {
-      const dark = theme === 'dark' || (theme === 'system' && media.matches)
+      const resolved = theme === 'system' ? (media.matches ? 'dark' : 'light') : theme
+      const dark = themes.find((option) => option.id === resolved)?.scheme === 'dark'
+      document.documentElement.dataset.theme = resolved
       document.documentElement.classList.toggle('dark', dark)
       document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
     }
@@ -21,9 +23,9 @@ export function useTheme() {
     try {
       localStorage.setItem('diskvio-theme', theme)
     } catch {
-      /* Session preference still works. */
+      /* Keep the choice for this session. */
     }
-    media.addEventListener('change', apply)
+    if (theme === 'system') media.addEventListener('change', apply)
     return () => media.removeEventListener('change', apply)
   }, [theme])
   return { theme, setTheme }
