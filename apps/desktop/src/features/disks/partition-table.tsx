@@ -1,7 +1,7 @@
 import type { Disk } from '@/models/disk'
-import { formatCapacity, allocatedCapacity } from '@/lib/capacity'
+import { formatCapacity, partitionSegments, partitionName } from '@/lib/capacity'
 export function PartitionTable({ disk }: { disk: Disk }) {
-  const unallocated = disk.capacityBytes - allocatedCapacity(disk)
+  if (disk.partitions === null) return null
   return (
     <div
       className="table-scroll"
@@ -10,7 +10,7 @@ export function PartitionTable({ disk }: { disk: Disk }) {
       tabIndex={0}
     >
       <table className="partition-table">
-        <caption className="sr-only">Partitions on {disk.name}, sample data</caption>
+        <caption className="sr-only">Partitions on {disk.name}</caption>
         <thead>
           <tr>
             <th scope="col">Partition</th>
@@ -20,37 +20,56 @@ export function PartitionTable({ disk }: { disk: Disk }) {
               Size
             </th>
             <th scope="col" className="numeric">
-              Used
+              Used / free
             </th>
           </tr>
         </thead>
         <tbody>
-          {disk.partitions.map((p, index) => (
-            <tr key={p.id}>
-              <th scope="row" title={p.name}>
-                <i className={`table-swatch partition-color-${index % 4}`} />
-                {p.name === 'EFI System' ? 'Startup files' : p.name}
-              </th>
-              <td>{p.filesystem ?? 'None'}</td>
-              <td>
-                <code>{p.mountPoint ?? 'None'}</code>
-              </td>
-              <td className="numeric">{formatCapacity(p.capacityBytes)}</td>
-              <td className="numeric">{formatCapacity(p.usedBytes)}</td>
-            </tr>
-          ))}
-          {unallocated > 0 && (
-            <tr>
-              <th scope="row">
-                <i className="table-swatch partition-color--1" />
-                Unassigned space
-              </th>
-              <td>None</td>
-              <td>None</td>
-              <td className="numeric">{formatCapacity(unallocated)}</td>
-              <td className="numeric">0 B</td>
-            </tr>
-          )}
+          {partitionSegments(disk).map((s) => {
+            const p = s.partition
+            return (
+              <tr key={s.id}>
+                <th
+                  scope="row"
+                  title={
+                    p
+                      ? `#${p.number ?? '?'} · ${p.partitionType ?? 'Unknown type'} · Offset ${p.offsetBytes} bytes · Length ${p.capacityBytes} bytes`
+                      : 'Physical space outside partitions'
+                  }
+                >
+                  <i className={`table-swatch partition-color-${s.colorIndex}`} />
+                  {p ? `${p.number ? `#${p.number} ` : ''}${partitionName(p)}` : 'Unassigned space'}
+                  {p && p.volumes.length > 1 && <small> · Shared volumes</small>}
+                </th>
+                <td>
+                  {p
+                    ? p.volumes.map((v) => v.filesystem ?? 'Unknown').join(', ') || 'Unknown'
+                    : '—'}
+                </td>
+                <td>
+                  <code>
+                    {p
+                      ? p.volumes.flatMap((v) => v.mountPoints).join(', ') || 'Not available'
+                      : '—'}
+                  </code>
+                </td>
+                <td className="numeric">{formatCapacity(s.capacityBytes)}</td>
+                <td className="numeric">
+                  {p
+                    ? p.volumes.length
+                      ? p.volumes
+                          .map((v) =>
+                            v.sharedSpace
+                              ? 'Shared · Unknown'
+                              : `${formatCapacity(v.usedBytes)} / ${formatCapacity(v.freeBytes)}`,
+                          )
+                          .join(', ')
+                      : 'Unknown'
+                    : '—'}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

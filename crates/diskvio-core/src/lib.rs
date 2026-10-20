@@ -1,46 +1,97 @@
-//! Pure, unprivileged domain types. No operating system access.
+//! Pure read-only inventory contract. Byte counts serialize as decimal strings.
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::fmt;
+use std::{collections::HashSet, fmt};
 
+pub mod bytes {
+    use serde::{Deserialize, Deserializer, Serializer};
+    pub fn serialize<S: Serializer>(value: &u64, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&value.to_string())
+    }
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
+        String::deserialize(d)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+pub mod optional_bytes {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    pub fn serialize<S: Serializer>(value: &Option<u64>, s: S) -> Result<S::Ok, S::Error> {
+        value.map(|v| v.to_string()).serialize(s)
+    }
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u64>, D::Error> {
+        Option::<String>::deserialize(d)?
+            .map(|v| v.parse().map_err(serde::de::Error::custom))
+            .transpose()
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum DeviceKind {
     Internal,
+    External,
     Removable,
+    Unknown,
 }
 
+/// Filesystem/logical volume, which need not have exclusive physical geometry (APFS).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Volume {
+    pub id: String,
+    pub label: Option<String>,
+    pub filesystem: Option<String>,
+    pub mount_points: Vec<String>,
+    #[serde(with = "optional_bytes")]
+    pub capacity_bytes: Option<u64>,
+    #[serde(with = "optional_bytes")]
+    pub used_bytes: Option<u64>,
+    #[serde(with = "optional_bytes")]
+    pub free_bytes: Option<u64>,
+    pub shared_space: bool,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Partition {
     pub id: String,
-    pub name: String,
+    pub number: Option<u32>,
+    pub name: Option<String>,
+    pub partition_type: Option<String>,
+    #[serde(with = "bytes")]
     pub offset_bytes: u64,
+    #[serde(with = "bytes")]
     pub capacity_bytes: u64,
-    pub used_bytes: u64,
-    pub filesystem: Option<String>,
-    pub mount_point: Option<String>,
+    pub volumes: Vec<Volume>,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Disk {
+    /// Stable OS identity when available; path fallback is only for read-only selection.
     pub id: String,
+    pub device_path: String,
     pub name: String,
-    pub model: String,
-    pub serial: String,
+    pub manufacturer: Option<String>,
+    pub model: Option<String>,
+    pub serial: Option<String>,
     pub kind: DeviceKind,
-    pub connection: String,
-    pub partition_scheme: String,
+    pub removable: Option<bool>,
+    pub connection: Option<String>,
+    pub partition_scheme: Option<String>,
+    pub online: Option<bool>,
+    pub read_only: Option<bool>,
+    pub system: Option<bool>,
+    #[serde(with = "bytes")]
     pub capacity_bytes: u64,
-    pub partitions: Vec<Partition>,
+    /// None means unavailable; Some(empty) means a known empty layout.
+    pub partitions: Option<Vec<Partition>>,
+    pub limitations: Vec<String>,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidationError {
     MissingIdentity,
     ZeroCapacity,
+    DuplicateDiskId,
     DuplicatePartitionId,
+    DuplicateVolumeId,
     UsageExceedsCapacity,
     OverlapOrOutOfBounds,
     IdentityChanged,
@@ -51,10 +102,18 @@ impl fmt::Display for ValidationError {
     }
 }
 impl std::error::Error for ValidationError {}
-
-/// Validates a sorted layout using checked arithmetic, including unallocated gaps.
+pub fn validate_inventory(disks: &[Disk]) -> Result<(), ValidationError> {
+    let mut ids = HashSet::new();
+    for disk in disks {
+        if !ids.insert(&disk.id) {
+            return Err(ValidationError::DuplicateDiskId);
+        }
+        validate_disk(disk)?;
+    }
+    Ok(())
+}
 pub fn validate_disk(disk: &Disk) -> Result<(), ValidationError> {
-    if disk.id.trim().is_empty() || disk.serial.trim().is_empty() {
+    if disk.id.trim().is_empty() || disk.device_path.trim().is_empty() {
         return Err(ValidationError::MissingIdentity);
     }
     if disk.capacity_bytes == 0 {
@@ -62,46 +121,64 @@ pub fn validate_disk(disk: &Disk) -> Result<(), ValidationError> {
     }
     let mut end = 0;
     let mut ids = HashSet::new();
-    for partition in &disk.partitions {
-        if partition.id.trim().is_empty() {
+    for p in disk.partitions.iter().flatten() {
+        // Shared logical volumes may legitimately reference multiple physical stores.
+        let mut volumes = HashSet::new();
+        if p.id.trim().is_empty() {
             return Err(ValidationError::MissingIdentity);
         }
-        if !ids.insert(&partition.id) {
+        if !ids.insert(&p.id) {
             return Err(ValidationError::DuplicatePartitionId);
         }
-        if partition.capacity_bytes == 0 {
+        if p.capacity_bytes == 0 {
             return Err(ValidationError::ZeroCapacity);
         }
-        if partition.used_bytes > partition.capacity_bytes {
-            return Err(ValidationError::UsageExceedsCapacity);
-        }
-        let next = partition
+        let next = p
             .offset_bytes
-            .checked_add(partition.capacity_bytes)
+            .checked_add(p.capacity_bytes)
             .ok_or(ValidationError::OverlapOrOutOfBounds)?;
-        if partition.offset_bytes < end || next > disk.capacity_bytes {
+        if p.offset_bytes < end || next > disk.capacity_bytes {
             return Err(ValidationError::OverlapOrOutOfBounds);
         }
         end = next;
+        for v in &p.volumes {
+            if v.id.trim().is_empty() {
+                return Err(ValidationError::MissingIdentity);
+            }
+            if !volumes.insert(&v.id) {
+                return Err(ValidationError::DuplicateVolumeId);
+            }
+            if v.capacity_bytes.is_some_and(|cap| {
+                v.used_bytes.is_some_and(|u| u > cap) || v.free_bytes.is_some_and(|f| f > cap)
+            }) {
+                return Err(ValidationError::UsageExceedsCapacity);
+            }
+            if !v.shared_space && v.capacity_bytes.is_some_and(|cap| cap > p.capacity_bytes) {
+                return Err(ValidationError::UsageExceedsCapacity);
+            }
+            if let (Some(cap), Some(used), Some(free)) =
+                (v.capacity_bytes, v.used_bytes, v.free_bytes)
+                && used.checked_add(free).is_none_or(|sum| sum > cap)
+            {
+                return Err(ValidationError::UsageExceedsCapacity);
+            }
+        }
     }
     Ok(())
 }
-
-/// A preliminary identity check, NOT sufficient authorization for future writes.
+/// Display continuity only. Missing serial is legitimate, and this never authorizes writes.
 pub fn validate_identity(expected: &Disk, current: &Disk) -> Result<(), ValidationError> {
     validate_disk(expected)?;
     validate_disk(current)?;
     if expected.id != current.id
         || expected.serial != current.serial
-        || expected.capacity_bytes != current.capacity_bytes
         || expected.model != current.model
+        || expected.capacity_bytes != current.capacity_bytes
     {
         return Err(ValidationError::IdentityChanged);
     }
     Ok(())
 }
-
-/// Decimal SI units, matching manufacturers' disk capacities.
 pub fn format_capacity(bytes: u64) -> String {
     const UNITS: [&str; 7] = ["B", "KB", "MB", "GB", "TB", "PB", "EB"];
     let mut value = bytes as f64;
@@ -116,120 +193,95 @@ pub fn format_capacity(bytes: u64) -> String {
         format!("{value:.1} {}", UNITS[unit])
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
     fn fixture() -> Disk {
-        Disk {
-            id: "demo-0".into(),
-            name: "System".into(),
-            model: "Example".into(),
-            serial: "DEMO-0".into(),
-            kind: DeviceKind::Internal,
-            connection: "NVMe".into(),
-            partition_scheme: "GPT".into(),
-            capacity_bytes: 1000,
-            partitions: vec![Partition {
-                id: "p1".into(),
-                name: "Data".into(),
-                offset_bytes: 0,
-                capacity_bytes: 800,
-                used_bytes: 200,
-                filesystem: Some("NTFS".into()),
-                mount_point: Some("C:".into()),
-            }],
-        }
+        serde_json::from_str::<Vec<Disk>>(include_str!(
+            "../../../apps/desktop/src/fixtures/disks.json"
+        ))
+        .unwrap()
+        .remove(0)
     }
     #[test]
-    fn valid_layout_with_unallocated_space() {
-        assert_eq!(validate_disk(&fixture()), Ok(()));
-    }
-    #[test]
-    fn rejects_missing_identity_and_zero_capacity() {
-        let mut d = fixture();
-        d.serial.clear();
-        assert_eq!(validate_disk(&d), Err(ValidationError::MissingIdentity));
-        d.serial = "serial".into();
-        d.capacity_bytes = 0;
-        assert_eq!(validate_disk(&d), Err(ValidationError::ZeroCapacity));
-    }
-    #[test]
-    fn rejects_overused_partition() {
-        let mut d = fixture();
-        d.partitions[0].used_bytes = 801;
-        assert_eq!(
-            validate_disk(&d),
-            Err(ValidationError::UsageExceedsCapacity)
-        );
-    }
-    #[test]
-    fn rejects_overlap_and_duplicate_ids() {
-        let mut d = fixture();
-        d.partitions.push(d.partitions[0].clone());
-        assert_eq!(
-            validate_disk(&d),
-            Err(ValidationError::DuplicatePartitionId)
-        );
-        d.partitions[1].id = "p2".into();
-        assert_eq!(
-            validate_disk(&d),
-            Err(ValidationError::OverlapOrOutOfBounds)
-        );
-    }
-    #[test]
-    fn rejects_out_of_bounds_and_integer_overflow() {
-        let mut d = fixture();
-        d.partitions[0].offset_bytes = 999;
-        assert_eq!(
-            validate_disk(&d),
-            Err(ValidationError::OverlapOrOutOfBounds)
-        );
-        d.partitions[0].offset_bytes = u64::MAX;
-        assert_eq!(
-            validate_disk(&d),
-            Err(ValidationError::OverlapOrOutOfBounds)
-        );
-    }
-    #[test]
-    fn detects_replaced_device() {
-        let d = fixture();
-        let mut replacement = d.clone();
-        replacement.serial = "different".into();
-        assert_eq!(
-            validate_identity(&d, &replacement),
-            Err(ValidationError::IdentityChanged)
-        );
-        assert_eq!(validate_identity(&d, &d), Ok(()));
-    }
-    #[test]
-    fn capacity_units_are_decimal() {
-        assert_eq!(format_capacity(0), "0 B");
-        assert_eq!(format_capacity(999), "999 B");
-        assert_eq!(format_capacity(1000), "1.0 KB");
-        assert_eq!(format_capacity(512_000_000_000), "512.0 GB");
-        assert_eq!(format_capacity(u64::MAX), "18.4 EB");
-    }
-    #[test]
-    fn serializable_contract_roundtrips() {
-        let disk = fixture();
-        let json = serde_json::to_value(&disk).unwrap();
-        assert_eq!(json["capacityBytes"], 1000);
-        assert_eq!(json["kind"], "internal");
-        assert_eq!(serde_json::from_value::<Disk>(json).unwrap(), disk);
-    }
-    #[test]
-    fn frontend_fixtures_match_rust_contract_and_validate() {
+    fn fixtures_validate() {
         let disks: Vec<Disk> = serde_json::from_str(include_str!(
             "../../../apps/desktop/src/fixtures/disks.json"
         ))
         .unwrap();
         assert_eq!(disks.len(), 3);
-        let mut ids = HashSet::new();
-        for disk in disks {
-            assert!(disk.id.starts_with("demo-"));
-            assert!(ids.insert(disk.id.clone()));
-            validate_disk(&disk).unwrap();
-        }
+        assert_eq!(validate_inventory(&disks), Ok(()));
+        assert_eq!(validate_inventory(&[]), Ok(()));
+        assert_eq!(
+            validate_inventory(&[fixture(), fixture()]),
+            Err(ValidationError::DuplicateDiskId)
+        );
+    }
+    #[test]
+    fn optional_metadata_is_valid() {
+        let mut d = fixture();
+        d.serial = None;
+        d.model = None;
+        d.partitions = None;
+        assert_eq!(validate_disk(&d), Ok(()));
+        d.capacity_bytes = 0;
+        assert_eq!(validate_disk(&d), Err(ValidationError::ZeroCapacity));
+        d.id.clear();
+        assert_eq!(validate_disk(&d), Err(ValidationError::MissingIdentity));
+    }
+    #[test]
+    fn invalid_layouts() {
+        let mut d = fixture();
+        d.partitions.as_mut().unwrap()[0].offset_bytes = u64::MAX;
+        assert_eq!(
+            validate_disk(&d),
+            Err(ValidationError::OverlapOrOutOfBounds)
+        );
+        d = fixture();
+        d.partitions.as_mut().unwrap()[1].offset_bytes = 0;
+        assert_eq!(
+            validate_disk(&d),
+            Err(ValidationError::OverlapOrOutOfBounds)
+        );
+        d = fixture();
+        let ps = d.partitions.as_mut().unwrap();
+        ps[1].id = ps[0].id.clone();
+        assert_eq!(
+            validate_disk(&d),
+            Err(ValidationError::DuplicatePartitionId)
+        );
+        d = fixture();
+        d.partitions.as_mut().unwrap()[0].capacity_bytes = d.capacity_bytes + 1;
+        assert_eq!(
+            validate_disk(&d),
+            Err(ValidationError::OverlapOrOutOfBounds)
+        );
+    }
+    #[test]
+    fn usage_and_identity() {
+        let mut d = fixture();
+        d.partitions.as_mut().unwrap()[0].volumes[0].used_bytes = Some(u64::MAX);
+        assert_eq!(
+            validate_disk(&d),
+            Err(ValidationError::UsageExceedsCapacity)
+        );
+        let a = fixture();
+        let mut b = a.clone();
+        assert_eq!(validate_identity(&a, &b), Ok(()));
+        b.serial = Some("replacement".into());
+        assert_eq!(
+            validate_identity(&a, &b),
+            Err(ValidationError::IdentityChanged)
+        );
+    }
+    #[test]
+    fn exact_string_transport() {
+        let mut d = fixture();
+        d.capacity_bytes = u64::MAX;
+        let json = serde_json::to_value(&d).unwrap();
+        assert_eq!(json["capacityBytes"], u64::MAX.to_string());
+        assert_eq!(serde_json::from_value::<Disk>(json).unwrap(), d);
+        assert_eq!(format_capacity(u64::MAX), "18.4 EB");
+        assert_eq!(format_capacity(1000), "1.0 KB");
     }
 }

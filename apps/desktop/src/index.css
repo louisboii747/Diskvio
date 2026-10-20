@@ -544,6 +544,37 @@ main {
 .table-scroll {
   max-width: 100%;
   overflow-x: auto;
+  max-height: 235px;
+  overflow-y: auto;
+}
+.partition-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.device-buttons {
+  max-height: 500px;
+  overflow-y: auto;
+}
+.device-button > strong,
+.device-model,
+.selected-heading > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.device-facts code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 12px;
 }
 .partition-table {
   width: 100%;
@@ -1187,6 +1218,25 @@ select {
   }
 }
 @media (min-width: 760px) and (max-height: 620px) {
+  .device-buttons {
+    max-height: 325px;
+  }
+  .table-scroll {
+    max-height: 140px;
+  }
+  .partition-table {
+    table-layout: fixed;
+  }
+  .partition-table th:first-child {
+    width: 23%;
+  }
+  .partition-table td:last-child {
+    white-space: normal;
+  }
+  .partition-table td,
+  .partition-table th {
+    overflow-wrap: anywhere;
+  }
   .device-model {
     display: none;
   }

@@ -7,45 +7,96 @@
     "kind": "internal",
     "connection": "NVMe / PCIe",
     "partitionScheme": "GPT",
-    "capacityBytes": 1000000000000,
+    "capacityBytes": "1000000000000",
     "partitions": [
       {
         "id": "demo-0-p1",
         "name": "EFI System",
-        "offsetBytes": 0,
-        "capacityBytes": 1000000000,
-        "usedBytes": 250000000,
-        "filesystem": "FAT32",
-        "mountPoint": null
+        "offsetBytes": "0",
+        "capacityBytes": "1000000000",
+        "number": 1,
+        "partitionType": "EFI system",
+        "volumes": [
+          {
+            "id": "demo-0-p1-v",
+            "label": "EFI System",
+            "filesystem": "FAT32",
+            "mountPoints": [],
+            "capacityBytes": "1000000000",
+            "usedBytes": "250000000",
+            "freeBytes": "750000000",
+            "sharedSpace": false
+          }
+        ]
       },
       {
         "id": "demo-0-p2",
         "name": "Windows",
-        "offsetBytes": 1000000000,
-        "capacityBytes": 749000000000,
-        "usedBytes": 412000000000,
-        "filesystem": "NTFS",
-        "mountPoint": "C:"
+        "offsetBytes": "1000000000",
+        "capacityBytes": "749000000000",
+        "number": 2,
+        "partitionType": "Data",
+        "volumes": [
+          {
+            "id": "demo-0-p2-v",
+            "label": "Windows",
+            "filesystem": "NTFS",
+            "mountPoints": ["C:"],
+            "capacityBytes": "749000000000",
+            "usedBytes": "412000000000",
+            "freeBytes": "337000000000",
+            "sharedSpace": false
+          }
+        ]
       },
       {
         "id": "demo-0-p3",
         "name": "Workspace",
-        "offsetBytes": 750000000000,
-        "capacityBytes": 249000000000,
-        "usedBytes": 146000000000,
-        "filesystem": "NTFS",
-        "mountPoint": "D:"
+        "offsetBytes": "750000000000",
+        "capacityBytes": "249000000000",
+        "number": 3,
+        "partitionType": "Data",
+        "volumes": [
+          {
+            "id": "demo-0-p3-v",
+            "label": "Workspace",
+            "filesystem": "NTFS",
+            "mountPoints": ["D:"],
+            "capacityBytes": "249000000000",
+            "usedBytes": "146000000000",
+            "freeBytes": "103000000000",
+            "sharedSpace": false
+          }
+        ]
       },
       {
         "id": "demo-0-p4",
         "name": "Recovery",
-        "offsetBytes": 999000000000,
-        "capacityBytes": 1000000000,
-        "usedBytes": 600000000,
-        "filesystem": "NTFS",
-        "mountPoint": null
+        "offsetBytes": "999000000000",
+        "capacityBytes": "1000000000",
+        "number": 4,
+        "partitionType": "Recovery",
+        "volumes": [
+          {
+            "id": "demo-0-p4-v",
+            "label": "Recovery",
+            "filesystem": "NTFS",
+            "mountPoints": [],
+            "capacityBytes": "1000000000",
+            "usedBytes": "600000000",
+            "freeBytes": "400000000",
+            "sharedSpace": false
+          }
+        ]
       }
-    ]
+    ],
+    "devicePath": "demo-0",
+    "manufacturer": null,
+    "removable": false,
+    "online": true,
+    "readOnly": false,
+    "system": true,
+    "limitations": []
   },
   {
     "id": "demo-1",
@@ -55,18 +106,36 @@
     "kind": "internal",
     "connection": "SATA / 6 Gb/s",
     "partitionScheme": "GPT",
-    "capacityBytes": 2000000000000,
+    "capacityBytes": "2000000000000",
     "partitions": [
       {
         "id": "demo-1-p1",
         "name": "Archive",
-        "offsetBytes": 0,
-        "capacityBytes": 1800000000000,
-        "usedBytes": 1180000000000,
-        "filesystem": "NTFS",
-        "mountPoint": "E:"
+        "offsetBytes": "0",
+        "capacityBytes": "1800000000000",
+        "number": 1,
+        "partitionType": "Data",
+        "volumes": [
+          {
+            "id": "demo-1-p1-v",
+            "label": "Archive",
+            "filesystem": "NTFS",
+            "mountPoints": ["E:"],
+            "capacityBytes": "1800000000000",
+            "usedBytes": "1180000000000",
+            "freeBytes": "620000000000",
+            "sharedSpace": false
+          }
+        ]
       }
-    ]
+    ],
+    "devicePath": "demo-1",
+    "manufacturer": null,
+    "removable": false,
+    "online": true,
+    "readOnly": false,
+    "system": false,
+    "limitations": []
   },
   {
     "id": "demo-2",
@@ -76,17 +145,35 @@
     "kind": "removable",
     "connection": "USB / 3.0",
     "partitionScheme": "MBR",
-    "capacityBytes": 64000000000,
+    "capacityBytes": "64000000000",
     "partitions": [
       {
         "id": "demo-2-p1",
         "name": "PORTABLE",
-        "offsetBytes": 0,
-        "capacityBytes": 64000000000,
-        "usedBytes": 18500000000,
-        "filesystem": "exFAT",
-        "mountPoint": "F:"
+        "offsetBytes": "0",
+        "capacityBytes": "64000000000",
+        "number": 1,
+        "partitionType": "Data",
+        "volumes": [
+          {
+            "id": "demo-2-p1-v",
+            "label": "PORTABLE",
+            "filesystem": "exFAT",
+            "mountPoints": ["F:"],
+            "capacityBytes": "64000000000",
+            "usedBytes": "18500000000",
+            "freeBytes": "45500000000",
+            "sharedSpace": false
+          }
+        ]
       }
-    ]
+    ],
+    "devicePath": "demo-2",
+    "manufacturer": null,
+    "removable": true,
+    "online": true,
+    "readOnly": false,
+    "system": false,
+    "limitations": []
   }
 ]

@@ -1,17 +1,24 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { getAppInfo, subscribeToMenu } from './native'
+import { getAppInfo, listDisks, subscribeToMenu } from './native'
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: vi.fn() }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn() }))
 beforeEach(() => vi.clearAllMocks())
 it('does not invoke or register listeners in browser preview', async () => {
   vi.mocked(isTauri).mockReturnValue(false)
   expect(await getAppInfo()).toBeNull()
+  await expect(listDisks()).rejects.toThrow('desktop app')
   const stop = await subscribeToMenu(vi.fn())
   stop()
   expect(invoke).not.toHaveBeenCalled()
   expect(listen).not.toHaveBeenCalled()
+})
+it('invokes list_disks without arguments or shell permissions', async () => {
+  vi.mocked(isTauri).mockReturnValue(true)
+  vi.mocked(invoke).mockResolvedValueOnce([])
+  expect(await listDisks()).toEqual([])
+  expect(invoke).toHaveBeenCalledWith('list_disks')
 })
 it('invokes the real allowlisted Rust command and propagates failures', async () => {
   vi.mocked(isTauri).mockReturnValue(true)

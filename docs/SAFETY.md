@@ -1,6 +1,6 @@
 # Disk operation safety principles
 
-Diskvio deals with operations that can irreversibly remove user data. Milestone 1 uses explicitly labelled local demonstration fixtures only. The following remain **requirements for future disk operations**, not assurances that those operations are implemented.
+Diskvio deals with operations that can irreversibly remove user data. Milestone 2 adds strictly read-only hardware discovery alongside labelled local demonstration fixtures. The following remain **requirements for future disk operations**, not assurances that those operations are implemented.
 
 ## Default behaviour
 
@@ -32,12 +32,17 @@ Keep ordinary UI and read-only operations unprivileged. Use OS-supported authori
 
 No destructive disk operation has been implemented in this repository yet.
 
-## Milestone 1 enforcement
+## Milestone 2 enforcement
 
-- The only registered application IPC command is `get_app_info`, which returns metadata and unavailable capabilities.
-- The platform adapter performs no discovery and denies every disk capability.
-- Destructive buttons and native menu items are disabled. Refresh reloads local fixtures only.
+- The only registered application IPC commands are `get_app_info` and asynchronous, no-argument `list_disks`.
+- Platform adapters permit discovery only. Partition management and USB writing capabilities are always false.
+- Destructive buttons and native menu items remain disabled. Refresh reads the selected live/demo source and never changes disk state.
 - The helper is a non-privileged placeholder, rejects all arguments, and is not bundled or launched by the desktop app.
 - No shell, filesystem, opener or file-dialog plugin is installed. Main-window permissions allow only event subscription and cleanup.
 - No elevation, administrator startup requirement, raw disk access, mount/unmount or eject code exists.
-- Tests exercise fixtures and pure models; they do not inspect or modify developer storage.
+- macOS/Linux utilities are fixed absolute OS paths with read-only verbs and validated separate arguments, bounded output and deadlines. No arbitrary command facility is exposed.
+- Unknown partition layout/usage/classification stays unknown. Live failures never silently substitute or mix sample devices.
+- USB candidates require confirmed USB and external/removable classification plus known non-system status. Unknown classification never grants eligibility, no physical target is preselected, and eligibility never authorizes a write.
+- Ordinary automated tests use deterministic provider fixtures and never inspect or modify developer storage. The opt-in diagnostic and native smoke check enumerate hardware read-only. Diagnostic output omits serials, stable IDs and paths (which may embed serials).
+- Hardware inventory stays local; it is neither automatically logged nor uploaded. UI serial display is local to the app.
+- Read-only selection identities may fall back to OS paths; missing serials and cloned/reused IDs cannot authorize future destructive operations.

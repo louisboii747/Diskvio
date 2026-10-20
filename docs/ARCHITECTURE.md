@@ -1,51 +1,51 @@
 # Architecture
 
-Diskvio is a single Tauri 2 desktop application with a React/TypeScript interface and an unprivileged Rust backend. Milestone 1 is implemented. All displayed devices are local fixtures.
+The existing Tauri 2 / React desktop shell, six themes, native menus and component boundaries are retained. One root Cargo workspace and pnpm workspace own their lockfiles. `diskvio-helper` remains an inactive, non-privileged executable that is neither bundled nor invoked.
 
-## Responsibilities
+## Discovery flow
 
-| Path                          | Responsibility                                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `apps/desktop/src/components` | Desktop shell, shared states and official shadcn UI components                                                |
-| `apps/desktop/src/features`   | Disk overview, partition inspector, USB workflow and settings                                                 |
-| `apps/desktop/src/models`     | Typed frontend contracts and navigation                                                                       |
-| `apps/desktop/src/fixtures`   | Explicitly simulated device inventory                                                                         |
-| `apps/desktop/src/services`   | Local fixture loading and the native IPC/event boundary                                                       |
-| `apps/desktop/src/hooks`      | Async resources and persisted/system appearance                                                               |
-| `apps/desktop/src-tauri`      | Window, native menus and the sole `get_app_info` command                                                      |
-| `crates/diskvio-core`         | Serializable disk/partition models, layout validation, preliminary identity checks and SI capacity formatting |
-| `crates/diskvio-platform`     | `DiskPlatform` trait, capability descriptions and unavailable adapter                                         |
-| `crates/diskvio-helper`       | Inactive, non-privileged executable; not bundled or invoked by the app                                        |
-| `assets/branding`             | Original SVG icon source                                                                                      |
-| `.github/workflows`           | Windows, macOS and Linux compile/test matrix                                                                  |
+1. Native builds default to Live Mode. Settings can explicitly choose Demonstration Mode; only native builds persist that preference. Browser preview always uses labelled local fixtures.
+2. `get_app_info` reports the host OS and compiled discovery support; permission/provider availability is determined by `list_disks`, rather than claiming successful enumeration from a capability boolean.
+3. The no-argument `list_disks` command moves blocking discovery to Tauri's blocking pool. Platform-specific implementations live behind `DiskPlatform`. Failures return `{code, message}` (`unsupported`, `permissionDenied`, `discoveryFailed`, `invalidData`, `timeout`), never a successful empty inventory. A genuinely empty enumeration is valid.
+4. Rust validates unique disk/partition/volume identities, positive capacities, sorted non-overlapping geometry, bounds, checked arithmetic and reliable usage bounds before IPC. Missing serial numbers are valid for read-only display.
+5. React holds one source and inventory. Request generations reject obsolete refresh/source-switch results. A refresh keeps previous data visible, explicitly marks failures as stale, and reconciles the selected disk against identity, serial, model and capacity. Removal/replacement clears selection and explains why. Source switching clears all inventory/selection before loading. There is no polling.
 
-There is one root Cargo workspace and lockfile; the Tauri crate has no nested workspace. The pnpm workspace contains the desktop application and one root lockfile. Release settings live at the Cargo workspace root.
+## Domain and byte transport
 
-## Implemented execution flow
+`Disk` is an OS-visible physical device, `Partition` owns exact physical offset/length, and `Volume` owns filesystem metadata, labels, mounts and optional usage. APFS logical volumes belong to backing partitions and are marked `sharedSpace`; they are never promoted to physical devices. A volume's filesystem capacity can be smaller than its partition. Free filesystem bytes are not calculated as partition length minus used bytes.
 
-1. The frontend invokes `get_app_info` through Tauri IPC. Rust returns version, platform, demo mode and capabilities.
-2. The native Rust menu emits an allowlisted action to the main window. React subscribes, navigates or reloads local fixtures, and releases its listener on unmount (including Strict Mode remounts).
-3. Fixture loading is isolated behind an asynchronous service with loading, empty, error and retry states. Refresh does not scan hardware. Selection is shared through the app shell using ordinary React state; Zustand is unnecessary at this size.
-4. The same selected disk is used in the overview and partition inspector. USB target choices include only simulated removable devices.
-5. Partition widths derive from byte capacities and offsets, including gaps. No minimum-width distortion is applied; tables and legends make tiny partitions readable. Capacity units are decimal SI, and free space within partitions is distinct from unallocated space.
-6. The platform adapter denies all capabilities and returns `NotYetAvailable` for discovery. It does not report an empty list as if discovery succeeded.
+Every Rust `u64` byte count serializes as a decimal **string**, including optional volume counts (`null` when unknown). TypeScript uses `bigint` for arithmetic and only converts final display proportions to floating point. Fixture JSON is deserialized and validated by Rust tests. Even `u64::MAX` roundtrips exactly.
 
-Rust tests deserialize the actual frontend fixture JSON and validate its layouts, checking the serialization contract without a second Rust fixture source. Frontend models currently mirror the Rust camelCase types; generated contracts can be considered when live discovery expands. Keep byte values within JavaScript's safe integer range when adding frontend fixtures; future larger-than-safe-integer capacities need a string/bigint transport contract.
+`partitions: null` means geometry is unavailable; `[]` means a known empty layout. Only a complete validated layout permits gap/unallocated calculations. Partition maps use actual offsets with no artificial minimum widths; table rows keep tiny EFI/recovery regions identifiable. Totals are unknown if any filesystem usage is missing or shared. The table shows separate used/free figures; shared APFS usage is never summed across physical stores.
 
-## Native shell and permissions
+## Platform adapters
 
-The window is 1240 × 820 logical pixels by default, minimum 800 × 600. System decorations remain native. The UI fits all page content at a viewport as small as 800 × 540, leaving room for native window controls. At narrow browser widths or enlarged text sizes it allows scrolling so content stays reachable. Settings offers System, Light, Dark, Ocean, Forest and Sand themes through a keyboard-accessible radio picker. The theme hook stores the choice, sets shared CSS tokens and follows OS appearance changes for System. Version numbers and development-stage labels do not appear in the interface or About metadata.
+### Windows
 
-The Rust menu uses Tauri 2 menu builders. macOS gets Diskvio, File, Edit, View, Disk, Partition, USB, Window and Help menus, including application services/hide/quit conventions and explicit Window/Help roles. Windows/Linux use File for Quit and View for Settings. Standard Edit and Window actions use native predefined items. Destructive menu items are disabled.
+The maintained [`wmi` Rust crate](https://docs.rs/wmi/0.18.4/wmi/) queries native COM/WMI in `ROOT\Microsoft\Windows\Storage`: [MSFT_Disk](https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-disk), [MSFT_Partition](https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-partition), [MSFT_Volume](https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-volume). Queries select fixed property sets; no methods, raw handles or PowerShell are used. Partition `AccessPaths` match volume GUID paths. Windows marks NVMe/ATA/SATA as internal, USB/1394 as external; ambiguous buses remain unknown. Explicit virtual/file-backed/Storage Spaces buses are excluded. RAID devices are shown as Windows presents them; member-drive topology is not invented.
 
-Navigation shortcuts: Cmd/Ctrl+1 (overview), +2 (partitions), +3 (USB); Cmd/Ctrl+R reloads demonstration data; Cmd/Ctrl+, opens Settings. About uses Tauri's native predefined About dialog. Frontend shortcuts are supplied by native menus, not a duplicate HTML menu bar. macOS/Linux runtime behavior and native menu click-through require platform testing.
+If the modern namespace is inaccessible, fixed `ROOT\CIMV2` queries use `Win32_DiskDrive`, `Win32_DiskPartition`, `Win32_LogicalDisk` and their partition/volume association. The fallback reports limitations; online/read-only state and modern bus details can be unknown. Extended MBR container layouts are unavailable instead of overlapping physical extents. Empty card readers with no positive media capacity are excluded. Modern GUID paths can expose only volume metadata Windows permits the caller to read. Recovery/unmounted/locked/non-Windows filesystems can lack labels, filesystem type or usage.
 
-The main-window capability permits only native event listen/unlisten. The sole custom app command returns metadata. No shell, opener, filesystem or dialog plugin is installed, no helper is launched, and no storage operation is exposed. The CSP restricts scripts/assets to the application and IPC; development additionally allows the local Vite connection. The local font is packaged, not fetched remotely.
+Selection identity prefers `MSFT_Disk.UniqueId`, otherwise a device path plus available serial/model/capacity; compatibility discovery prefers PNP identity. OS disk numbers alone are not treated as durable identities. Bus/classification may legitimately change when switching provider. Native APIs may expose virtual devices on otherwise ordinary buses; classification is conservative, not a write-safety guarantee.
 
-## Future execution flow and platform boundaries
+### macOS
 
-Live discovery belongs in platform-specific, read-only adapters behind `DiskPlatform`: native Windows storage APIs, macOS disk facilities and Linux storage facilities. Opening the UI must remain unprivileged.
+Fixed absolute `/usr/sbin/diskutil` calls use only `list -plist physical`, `info -plist <validated BSD id>` and `apfs list -plist`. BSD identifiers must match `diskN(sN)*`; arguments are separate process arguments, never shell text. Plists are parsed with the Rust `plist` crate. Physical listings exclude synthesized APFS disks. APFS `PhysicalStores` associate logical volumes with backing partitions. Missing offsets or inaccessible partition information makes the layout unavailable, not a guessed sequence of extents.
 
-Before future writes, the core must validate an operation against a fresh identity snapshot and explicit capabilities. Only a deliberate, authenticated, narrowly typed request may reach a separately reviewed helper. The helper must re-discover and revalidate the target after authorization, report progress/errors and deny unsupported work. The current preliminary identity comparison is **not** a complete write authorization mechanism.
+Identity prefers disk UUID, then available serial/model, then BSD path/model/capacity. macOS often does not expose hardware serials through diskutil, so path fallback cannot prove continuity across indistinguishable replacement devices. APFS shared stores, snapshots, quotas, Fusion/multi-store configurations and native runtime require host testing. System classification remains unknown where it cannot be proved, excluding those devices from USB candidates.
 
-Never construct shell commands from user paths, run the entire UI as administrator/root or expose generic privileged execution. See [Safety](SAFETY.md).
+### Linux
+
+Fixed absolute `/usr/bin/lsblk` (or `/bin/lsblk`) runs [`--json --bytes --tree` with an explicit column list](https://www.man7.org/linux/man-pages/man8/lsblk.8.html). Kernel names and canonical sysfs paths filter out `/sys/devices/virtual` nodes, loops, device mapper and logical volumes as physical disks. Only direct `part` children supply physical extents; nested filesystems are marked shared. `START` is in 512-byte kernel sectors and is checked before multiplication; `SIZE` is bytes. Mount paths come from `MOUNTPOINTS`, not names inferred from labels. WWN, then serial/model, then device path identify a disk. Root/boot mounts protect USB classification; unknown transport stays unknown.
+
+The util-linux utility is used because it combines sysfs/udev topology, filesystem metadata and mounted filesystem statistics in one documented structured read-only interface. Root is not required; permissions and unsupported util-linux columns can yield unavailable properties or a structured failure. Whole-device filesystems currently report the partition layout as unavailable. Filesystem/container topology and hardware runtime need Linux host verification.
+
+Both Unix utility calls have a 20-second deadline and 16 MiB output limit. Exit/parse failures are explicit; utility stderr is not copied into logs. No shell interpreter is used.
+
+## Shell and safety boundaries
+
+Native menus retain navigation, Settings, About and Quit conventions; Cmd/Ctrl+R refreshes the active inventory. Event subscriptions are allowlisted and cleaned up. The 1240 × 820 default / 800 × 600 minimum window remains; larger real inventories use accessible scrolling tables/lists. Themes remain System, Light, Dark, Ocean, Forest and Sand.
+
+The main-window capability still permits only native event listen/unlisten. Custom application commands are `get_app_info` and `list_disks`. No shell, filesystem, opener or dialog plugin, automatic upload, elevation or privileged helper is introduced. Discovery capabilities describe read support only; partition management and USB writing are always false. USB choices require a known external/removable USB connection, non-system status and no known offline/read-only condition. No candidate is automatically selected, and writing remains disabled.
+
+Identity validation supports display continuity only. Devices without serials, cloned identifiers and path reuse cannot meet future destructive-operation requirements. Before any future write, independent backend safety validation, capability checks, stronger fresh identity evidence and explicit authorization remain mandatory. See [Safety](SAFETY.md).

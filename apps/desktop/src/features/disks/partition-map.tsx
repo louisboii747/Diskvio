@@ -2,6 +2,12 @@ import { formatCapacity, partitionSegments } from '@/lib/capacity'
 import type { Disk } from '@/models/disk'
 export function PartitionMap({ disk }: { disk: Disk }) {
   const segments = partitionSegments(disk)
+  if (disk.partitions === null)
+    return (
+      <p className="table-help">
+        Partition information is not available. Unallocated space is unknown.
+      </p>
+    )
   return (
     <figure className="partition-map">
       <figcaption>

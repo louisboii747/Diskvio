@@ -1,4 +1,4 @@
-name: Desktop foundation
+name: Read-only desktop inventory
 on:
   push:
     branches: [main]

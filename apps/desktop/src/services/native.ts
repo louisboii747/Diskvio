@@ -1,11 +1,18 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import type { Disk } from '@/models/disk'
+
+export const isNative = () => isTauri()
+export function listDisks(): Promise<Disk[]> {
+  if (!isNative()) return Promise.reject(new Error('Live discovery requires the desktop app.'))
+  return invoke<Disk[]>('list_disks')
+}
 
 export interface AppInfo {
   name: string
   version: string
   platform: string
-  dataMode: 'demo'
+  dataMode: 'live' | 'demo'
   capabilities: { discovery: boolean; partitionManagement: boolean; usbWriting: boolean }
 }
 export type MenuAction = 'refresh' | 'overview' | 'partitions' | 'usb' | 'settings'

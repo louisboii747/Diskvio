@@ -1,6 +1,6 @@
 import { HardDrive, Usb, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { formatCapacity, usedCapacity } from '@/lib/capacity'
+import { formatCapacity, usedCapacity, ratio } from '@/lib/capacity'
 import type { Disk } from '@/models/disk'
 export function DeviceList({
   disks,
@@ -12,10 +12,10 @@ export function DeviceList({
   select: (id: string) => void
 }) {
   return (
-    <section className="device-list" aria-label="Sample drives">
+    <section className="device-list" aria-label="Drives">
       <div className="panel-heading">
         <h2>Drives</h2>
-        <span>{disks.length} samples</span>
+        <span>{disks.length} devices</span>
       </div>
       <div className="device-buttons">
         {disks.map((disk) => {
@@ -31,17 +31,31 @@ export function DeviceList({
             >
               <div className="device-top">
                 <Icon size={18} />
-                <span>{disk.kind === 'removable' ? 'USB drive' : 'Built-in drive'}</span>
+                <span>
+                  {disk.kind === 'removable'
+                    ? 'Removable drive'
+                    : disk.kind === 'external'
+                      ? 'External drive'
+                      : disk.kind === 'internal'
+                        ? 'Built-in drive'
+                        : 'Unknown location'}
+                </span>
                 {selected === disk.id && <Check size={14} />}
               </div>
               <strong>{disk.name}</strong>
-              <span className="device-model">{disk.model}</span>
+              <span className="device-model">{disk.model ?? 'Model not available'}</span>
               <div className="device-meta">
                 <strong>{formatCapacity(disk.capacityBytes)}</strong>
-                <span>{Math.round((used / disk.capacityBytes) * 100)}% used</span>
+                <span>
+                  {used === null
+                    ? 'Usage unknown'
+                    : `${Math.round(ratio(used, disk.capacityBytes))}% used`}
+                </span>
               </div>
               <div className="usage-track" aria-hidden="true">
-                <span style={{ width: `${(used / disk.capacityBytes) * 100}%` }} />
+                <span
+                  style={{ width: `${used === null ? 0 : ratio(used, disk.capacityBytes)}%` }}
+                />
               </div>
             </button>
           )

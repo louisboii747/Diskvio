@@ -17,6 +17,7 @@ interface Props {
   loading: boolean
   status: string
   nativeStatus: string
+  source: 'live' | 'demo'
   children: ReactNode
 }
 export function AppShell({
@@ -27,6 +28,7 @@ export function AppShell({
   loading,
   status,
   nativeStatus,
+  source,
   children,
 }: Props) {
   return (
@@ -60,8 +62,8 @@ export function AppShell({
         <div className="sidebar-bottom">
           <ShieldCheck size={19} />
           <div>
-            <strong>Demo mode</strong>
-            <p>Sample drives only</p>
+            <strong>{source === 'demo' ? 'Demo mode' : 'Live mode'}</strong>
+            <p>{source === 'demo' ? 'Sample drives only' : 'Read-only discovery'}</p>
           </div>
         </div>
       </aside>
@@ -76,12 +78,12 @@ export function AppShell({
           <Button
             variant="outline"
             size="sm"
-            aria-label="Reload samples"
+            aria-label={source === 'demo' ? 'Reload samples' : 'Refresh drives'}
             onClick={refresh}
             disabled={loading}
           >
             <RefreshCw size={14} />
-            <span>Reload samples</span>
+            <span>{loading ? 'Loading…' : source === 'demo' ? 'Reload samples' : 'Refresh'}</span>
           </Button>
         </header>
         <main id="main-content" tabIndex={-1}>

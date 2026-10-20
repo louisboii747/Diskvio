@@ -3,17 +3,23 @@ import { Button } from '@/components/ui/button'
 import { themes, type Theme } from '@/models/themes'
 import type { Resource } from '@/hooks/use-resource'
 import type { AppInfo } from '@/services/native'
+import { isNative } from '@/services/native'
+import type { InventorySource } from '@/models/disk'
 const platformNames: Record<string, string> = { windows: 'Windows', macos: 'macOS', linux: 'Linux' }
 export function SettingsScreen({
   theme,
   setTheme,
   info,
   retry,
+  source,
+  changeSource,
 }: {
   theme: Theme
   setTheme: (theme: Theme) => void
   info: Resource<AppInfo | null>
   retry: () => void
+  source: InventorySource
+  changeSource: (source: InventorySource) => void
 }) {
   return (
     <div className="settings-layout">
@@ -66,7 +72,15 @@ export function SettingsScreen({
       </section>
       <section className="panel settings-panel about-panel">
         <h2>About Diskvio</h2>
-        <p>See your drives and how they use space.</p>
+        <label className="source-picker">
+          Device source
+          <select value={source} onChange={(e) => changeSource(e.target.value as InventorySource)}>
+            <option value="live" disabled={!isNative()}>
+              Live · Read only
+            </option>
+            <option value="demo">Demonstration Mode</option>
+          </select>
+        </label>
         {info.status === 'loading' && <p role="status">Connecting to the desktop app...</p>}
         {info.status === 'error' && (
           <div className="connection-error" role="alert">
@@ -90,15 +104,11 @@ export function SettingsScreen({
               </div>
               <div>
                 <dt>Drives shown</dt>
-                <dd>Sample drives</dd>
+                <dd>{source === 'live' ? 'Live devices' : 'Sample drives'}</dd>
               </div>
               <div>
                 <dt>Drive changes</dt>
-                <dd>
-                  {Object.values(info.data.capabilities).some(Boolean)
-                    ? 'Unavailable in this demo'
-                    : 'Not available yet'}
-                </dd>
+                <dd>Not available yet</dd>
               </div>
             </dl>
           ) : (
@@ -110,7 +120,7 @@ export function SettingsScreen({
           <ShieldCheck size={20} />
           <div>
             <strong>Your files stay untouched</strong>
-            <p>This demo uses sample drives. You can't change or erase a drive.</p>
+            <p>Discovery is read only. You can't change or erase a drive.</p>
           </div>
         </div>
         <p className="license-copy">Free and open source · MIT License</p>

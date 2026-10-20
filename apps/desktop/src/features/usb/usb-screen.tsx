@@ -1,17 +1,15 @@
 import { FileImage, Usb, ShieldCheck, LockKeyhole } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatCapacity } from '@/lib/capacity'
-import type { Disk } from '@/models/disk'
-export function UsbScreen({
-  disks,
-  selectedId,
-  select,
-}: {
-  disks: Disk[]
-  selectedId: string
-  select: (id: string) => void
-}) {
-  const removable = disks.filter((d) => d.kind === 'removable')
+import { useState } from 'react'
+import type { Disk, InventorySource } from '@/models/disk'
+import { eligibleUsb, sameDevice } from '@/hooks/use-inventory'
+export function UsbScreen({ disks, source }: { disks: Disk[]; source: InventorySource }) {
+  const removable = disks.filter(eligibleUsb)
+  const [target, setTarget] = useState<{ disk: Disk; source: InventorySource } | null>(null)
+  const selectedId =
+    target?.source === source ? (removable.find((d) => sameDevice(d, target.disk))?.id ?? '') : ''
+  if (target && !selectedId) setTarget(null)
   return (
     <section className="panel usb-panel">
       <div className="section-title">
@@ -43,11 +41,16 @@ export function UsbScreen({
           </div>
           <div className="step-body">
             <Usb size={32} />
-            <label htmlFor="usb-target">Sample USB drive</label>
+            <label htmlFor="usb-target">
+              {source === 'demo' ? 'Sample USB drive' : 'USB drive'}
+            </label>
             <select
               id="usb-target"
               value={removable.some((d) => d.id === selectedId) ? selectedId : ''}
-              onChange={(event) => select(event.target.value)}
+              onChange={(event) => {
+                const disk = removable.find((d) => d.id === event.target.value)
+                setTarget(disk ? { disk, source } : null)
+              }}
             >
               <option value="" disabled>
                 Choose a drive
@@ -60,11 +63,13 @@ export function UsbScreen({
             </select>
             <p>
               {removable.length
-                ? 'You can try choosing a sample drive.'
-                : 'No sample USB drives to show.'}
+                ? 'Select a device to inspect. Writing is disabled.'
+                : 'No confidently identified USB candidates.'}
             </p>
           </div>
-          <span className="step-caption">Sample drives only</span>
+          <span className="step-caption">
+            {source === 'demo' ? 'Sample drives only' : 'Read-only device identification'}
+          </span>
         </section>
         <section className="usb-step">
           <div className="step-heading">

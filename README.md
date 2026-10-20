@@ -27,20 +27,28 @@
 
 ---
 
-> **Project status:** Milestone 1 is implemented: a buildable Tauri desktop foundation with clearly labelled demonstration devices. **No real disk discovery or disk-changing operations are enabled.** Windows builds and native WebView IPC have been verified; macOS/Linux runtime support remains unverified.
+> **Project status:** Milestone 2 implements real, read-only hardware discovery and an explicitly selectable Demonstration Mode. Windows discovery and the actual Tauri WebView have been verified without administrator rights. **Every disk-changing operation remains disabled.** macOS/Linux adapters are implemented; native host runtime verification remains outstanding.
 
 ## What works today
 
 - Compact Drives, Partitions, USB Writer and Settings pages with plain-language labels. All page content fits the supported desktop window without scrolling.
-- Three explicitly simulated physical disks, selectable device details, capacity/usage information, filesystem and mount labels.
+- Live physical disk discovery, optional filesystem/volume metadata, exact partition offsets and stable read-only device selection. Three labelled sample disks remain available in Demonstration Mode.
 - Byte-proportional partition maps, including unallocated space and readable tables for small system partitions.
 - A theme picker with System, Light, Dark, Ocean, Forest and Sand; saved preferences, keyboard navigation and reduced-motion support.
-- A real Rust `get_app_info` command connected through Tauri IPC.
-- Native menu groundwork with demonstration refresh, navigation, Settings, About and Quit; unavailable operations are disabled.
-- Shared Rust domain models, validation, platform capability stubs and an inactive non-privileged helper.
+- Real Rust `list_disks` and `get_app_info` commands connected through asynchronous Tauri IPC.
+- Native menus with live refresh, navigation, Settings, About and Quit; unavailable operations are disabled.
+- Shared Rust domain models, exact decimal-string byte transport, validation, platform adapters and an inactive non-privileged helper.
 - Frontend/Rust tests, browser accessibility checks and a cross-platform CI configuration.
 
-The USB and partition workflows are previews. Image selection, formatting, deletion, resizing, writing, mount/unmount and eject are **Not Yet Available**. Refresh reloads local fixtures; it never scans hardware. Browser preview clearly reports that native IPC is unavailable.
+Partitions are inspectable and USB candidates are identified, with no target automatically selected. Image selection, formatting, deletion, resizing, writing, mount/unmount and eject are **Not Yet Available**. Refresh re-enumerates the selected source and preserves a matching physical selection. Live errors never fall back to samples. Browser preview uses labelled demo data and cannot select Live Mode. Desktop Settings remembers the source preference separately from themes.
+
+| Platform | Read-only discovery | Limitations |
+| --- | --- | --- |
+| Windows | Native WMI through the maintained `wmi` Rust bindings: `MSFT_Disk`, `MSFT_Partition`, `MSFT_Volume`; unprivileged `Win32_*` compatibility fallback | Optional protected metadata stays unknown. No PowerShell is launched by the app. |
+| macOS | Fixed `/usr/sbin/diskutil list -plist physical`, `info -plist` and `apfs list -plist` | APFS volumes remain children of backing partitions; shared usage is not summed. Multi-store APFS and platform runtime need host verification. |
+| Linux | Fixed absolute `lsblk --json --bytes --tree --output ...` plus sysfs physical-device filtering | Loops, device mapper and virtual disks are excluded. Requires util-linux with the requested columns; inaccessible filesystem usage remains unknown. |
+
+Disk/partition/volume distinctions, identity fallbacks and permission limits are detailed in [Architecture](docs/ARCHITECTURE.md). Unsupported layouts do not become invented unallocated space. Full serials and device paths are omitted by the opt-in diagnostic: `cargo run -p diskvio-platform --example discover --locked`.
 
 ## Design principles
 
@@ -100,7 +108,7 @@ Install equivalent packages on other distributions, plus Node, pnpm, stable Rust
 From the repository root:
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev             # real Tauri desktop app
 pnpm build           # production frontend only
 pnpm build:desktop   # native executable and installers for the host OS
@@ -134,13 +142,13 @@ pnpm lint
 pnpm test
 pnpm build
 cargo fmt --all --check
-cargo check --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+cargo check --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
 pnpm --filter @diskvio/desktop test:e2e
 ```
 
-Windows results: **14 frontend tests, 12 Rust tests and 14 browser runs pass**, as do typechecking, lint, formatting, strict Clippy and production/native builds. The actual Windows WebView rendered and returned Rust application information through IPC. Native menu click-through, macOS/Linux runtime behavior and installer execution remain unverified. See [the verification record](docs/VERIFICATION.md) for exact coverage, failures fixed and limitations.
+Windows live verification observed **five physical disks and fourteen partitions**, matching independent read-only Windows inventory. The real Tauri WebView passed live discovery, source switching, refresh/selection, USB candidate filtering, theme persistence and disabled-action checks. See [the verification record](docs/VERIFICATION.md) for current automated counts, build results and platform limitations. Native menu click-through and installer execution remain separate manual checks.
 
 The GitHub Actions matrix is configured for Windows/macOS/Linux. Its remote status is separate from local verification.
 
@@ -186,12 +194,13 @@ Read [Architecture](docs/ARCHITECTURE.md) and [Safety](docs/SAFETY.md) before ex
 - [x] Windows executable/installer builds and automated check configuration
 - [ ] Native menu click-through verification on Windows, macOS and Linux
 - [ ] Native file dialogs and image validation
-- [ ] Read-only real-device discovery on Windows, macOS and Linux
+- [x] Read-only discovery adapters for Windows, macOS and Linux; Windows hardware/runtime verified
+- [ ] macOS/Linux hardware and native desktop runtime verification
 - [ ] Strong device identity revalidation, capability checks and privilege boundaries
 - [ ] Carefully tested destructive disk and removable-media operations
 - [ ] Signed releases and clean-machine packaging verification
 
-**Milestone 2:** begin with safe read-only discovery, stable device identities, capability reporting and platform integration tests. Destructive operations remain out of scope until the safety gates are implemented and reviewed.
+**Milestone 3 recommendation:** strengthen identity evidence and per-device capability reporting, expand host-based discovery validation and add read-only image inspection. Keep destructive operations disabled until their independent safety gates and platform tests are reviewed.
 
 ## Licence
 

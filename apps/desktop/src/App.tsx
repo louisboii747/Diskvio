@@ -9,7 +9,7 @@ import { UsbScreen } from '@/features/usb/usb-screen'
 import { SettingsScreen } from '@/features/settings/settings-screen'
 import { useResource } from '@/hooks/use-resource'
 import { useTheme } from '@/hooks/use-theme'
-import { loadDemoDisks } from '@/services/devices'
+import { useInventory } from '@/hooks/use-inventory'
 import { getAppInfo, subscribeToMenu } from '@/services/native'
 import '@/index.css'
 
@@ -21,10 +21,10 @@ const descriptions: Record<Page, string> = {
 }
 export default function App() {
   const [page, setPage] = useState<Page>('overview')
-  const [selectedId, setSelectedId] = useState('demo-0')
   const [refreshCount, setRefreshCount] = useState(0)
   const [menuError, setMenuError] = useState<string | null>(null)
-  const { resource: devices, reload } = useResource(loadDemoDisks)
+  const inventory = useInventory()
+  const { disks, selected, source, refresh: reload, select } = inventory
   const { resource: info, reload: reloadInfo } = useResource(getAppInfo)
   const { theme, setTheme } = useTheme()
   const navigate = useCallback((next: Page) => {
@@ -54,8 +54,6 @@ export default function App() {
       unlisten?.()
     }
   }, [navigate, refresh])
-  const disks = devices.status === 'ready' ? devices.data : []
-  const selected = disks.find((disk) => disk.id === selectedId) ?? disks[0]
   const nativeStatus =
     info.status === 'ready'
       ? info.data
@@ -64,13 +62,18 @@ export default function App() {
       : info.status === 'error'
         ? 'Desktop app disconnected'
         : 'Connecting to the desktop app...'
-  const status =
-    devices.status === 'loading'
-      ? 'Loading sample drives...'
-      : devices.status === 'error'
-        ? 'Could not load sample drives'
-        : refreshCount
+  const status = inventory.loading
+    ? source === 'live'
+      ? 'Discovering drives...'
+      : 'Loading sample drives...'
+    : inventory.error
+      ? 'Refresh failed'
+      : refreshCount
+        ? source === 'demo'
           ? 'Sample drives reloaded'
+          : 'Live inventory refreshed'
+        : source === 'live'
+          ? 'Live · Read only'
           : 'Demo mode'
   return (
     <AppShell
@@ -78,8 +81,9 @@ export default function App() {
       description={descriptions[page]}
       navigate={navigate}
       refresh={refresh}
-      loading={devices.status === 'loading'}
+      loading={inventory.loading}
       status={status}
+      source={source}
       nativeStatus={nativeStatus}
     >
       {menuError && (
@@ -88,26 +92,54 @@ export default function App() {
           <span className="error-detail">{menuError}</span>
         </div>
       )}
-      {page !== 'settings' && <DemoNotice />}
+      {page !== 'settings' && <DemoNotice source={source} />}
+      {inventory.notice && <p role="status">{inventory.notice}</p>}
+      {inventory.error && page !== 'settings' && disks.length > 0 && (
+        <div role="alert" className="error-banner">
+          Refresh failed. Showing the previous inventory, which may be stale. {inventory.error}{' '}
+          <button onClick={refresh}>Try again</button>
+        </div>
+      )}
       {page === 'settings' ? (
-        <SettingsScreen theme={theme} setTheme={setTheme} info={info} retry={reloadInfo} />
-      ) : devices.status === 'loading' ? (
-        <ResourceState kind="loading" />
-      ) : devices.status === 'error' ? (
-        <ResourceState kind="error" message={devices.message} retry={reload} />
+        <SettingsScreen
+          theme={theme}
+          setTheme={setTheme}
+          info={info}
+          retry={reloadInfo}
+          source={source}
+          changeSource={inventory.changeSource}
+        />
+      ) : inventory.loading && disks.length === 0 ? (
+        <ResourceState kind="loading" source={source} />
+      ) : inventory.error && disks.length === 0 ? (
+        <ResourceState kind="error" message={inventory.error} retry={refresh} source={source} />
+      ) : disks.length === 0 ? (
+        <ResourceState kind="empty" retry={refresh} source={source} />
       ) : !selected ? (
-        <ResourceState kind="empty" retry={reload} />
+        <div className="panel">
+          <p>Choose a drive to inspect.</p>
+          <select aria-label="Drive" value="" onChange={(e) => select(e.target.value)}>
+            <option value="" disabled>
+              Choose a drive
+            </option>
+            {disks.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </div>
       ) : page === 'overview' ? (
         <DiskOverview
           disks={disks}
           selected={selected}
-          select={setSelectedId}
+          select={select}
           openPartitions={() => navigate('partitions')}
         />
       ) : page === 'partitions' ? (
-        <PartitionsScreen disks={disks} selected={selected} select={setSelectedId} />
+        <PartitionsScreen disks={disks} selected={selected} select={select} />
       ) : (
-        <UsbScreen disks={disks} selectedId={selected.id} select={setSelectedId} />
+        <UsbScreen key={source} disks={disks} source={source} />
       )}
     </AppShell>
   )

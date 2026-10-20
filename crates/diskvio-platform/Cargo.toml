@@ -7,3 +7,8 @@ license.workspace = true
 [dependencies]
 diskvio-core.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+plist = "1"
+
+[target.'cfg(windows)'.dependencies]
+wmi = { version = "0.18.4", default-features = false }

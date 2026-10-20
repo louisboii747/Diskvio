@@ -18,7 +18,8 @@ export function PartitionsScreen({
         <div>
           <h2>{selected.name}</h2>
           <p>
-            {selected.model} · {selected.partitionScheme}
+            {selected.model ?? 'Model not available'} ·{' '}
+            {selected.partitionScheme ?? 'Unknown layout'}
           </p>
         </div>
         <label className="device-picker">

@@ -1,48 +1,79 @@
-import type { Disk, Segment } from '@/models/disk'
+import type { Bytes, Disk, Partition, Segment } from '@/models/disk'
 
-export function formatCapacity(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0)
-    throw new Error('Capacity must be non-negative and finite.')
+export function formatCapacity(bytes: Bytes | bigint | number | null): string {
+  if (bytes === null) return 'Unknown'
+  if (typeof bytes === 'number' && !Number.isSafeInteger(bytes)) throw new Error('Unsafe capacity')
+  const n = BigInt(bytes)
+  if (n < 0n) throw new Error('Capacity must be non-negative')
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB']
-  const unit = bytes === 0 ? 0 : Math.min(Math.floor(Math.log10(bytes) / 3), units.length - 1)
-  return unit === 0 ? `${bytes} B` : `${(bytes / 1000 ** unit).toFixed(1)} ${units[unit]}`
+  let divisor = 1n,
+    unit = 0
+  while (n >= divisor * 1000n && unit < units.length - 1) {
+    divisor *= 1000n
+    unit++
+  }
+  if (!unit) return `${n} B`
+  const tenths = (n * 10n + divisor / 2n) / divisor
+  return `${tenths / 10n}.${tenths % 10n} ${units[unit]}`
 }
-export const usedCapacity = (disk: Disk) => disk.partitions.reduce((sum, p) => sum + p.usedBytes, 0)
-export const allocatedCapacity = (disk: Disk) =>
-  disk.partitions.reduce((sum, p) => sum + p.capacityBytes, 0)
+export const partitionName = (p: Partition) =>
+  p.volumes
+    .map((v) => v.label)
+    .filter(Boolean)
+    .join(', ') ||
+  p.name ||
+  p.partitionType ||
+  `Partition ${p.number ?? '?'}`
+export const allocatedCapacity = (d: Disk) =>
+  d.partitions === null ? null : d.partitions.reduce((n, p) => n + BigInt(p.capacityBytes), 0n)
+// Shared/unknown filesystems cannot be summed into exclusive physical usage.
+function usage(d: Disk, key: 'usedBytes' | 'freeBytes'): bigint | null {
+  if (d.partitions === null) return null
+  let sum = 0n
+  for (const p of d.partitions) {
+    if (p.volumes.length !== 1) return null
+    const v = p.volumes[0]
+    if (v.sharedSpace || v[key] === null) return null
+    sum += BigInt(v[key])
+  }
+  return sum
+}
+export const usedCapacity = (d: Disk) => usage(d, 'usedBytes')
+export const freeCapacity = (d: Disk) => usage(d, 'freeBytes')
+export const unallocatedCapacity = (d: Disk) => {
+  const n = allocatedCapacity(d)
+  return n === null ? null : BigInt(d.capacityBytes) - n
+}
+export const ratio = (n: bigint, total: string | bigint) => (Number(n) / Number(total)) * 100
 
-/** Preserve exact proportions, including gaps. Never impose visual minimum widths. */
+/** Geometry uses bigint; only final visual proportions convert to floating point. */
 export function partitionSegments(disk: Disk): Segment[] {
+  if (disk.partitions === null) return []
   const segments: Segment[] = []
-  let cursor = 0
-  disk.partitions.forEach((partition, index) => {
-    if (partition.offsetBytes > cursor)
+  let cursor = 0n
+  const addGap = (end: bigint) => {
+    if (end > cursor)
       segments.push({
         id: `gap-${cursor}`,
         name: 'Unallocated',
-        capacityBytes: partition.offsetBytes - cursor,
-        percent: ((partition.offsetBytes - cursor) / disk.capacityBytes) * 100,
+        capacityBytes: end - cursor,
+        percent: ratio(end - cursor, disk.capacityBytes),
         partition: null,
         colorIndex: -1,
       })
+  }
+  disk.partitions.forEach((p, index) => {
+    addGap(BigInt(p.offsetBytes))
     segments.push({
-      id: partition.id,
-      name: partition.name,
-      capacityBytes: partition.capacityBytes,
-      percent: (partition.capacityBytes / disk.capacityBytes) * 100,
-      partition,
+      id: p.id,
+      name: partitionName(p),
+      capacityBytes: BigInt(p.capacityBytes),
+      percent: ratio(BigInt(p.capacityBytes), disk.capacityBytes),
+      partition: p,
       colorIndex: index % 4,
     })
-    cursor = partition.offsetBytes + partition.capacityBytes
+    cursor = BigInt(p.offsetBytes) + BigInt(p.capacityBytes)
   })
-  if (cursor < disk.capacityBytes)
-    segments.push({
-      id: `gap-${cursor}`,
-      name: 'Unallocated',
-      capacityBytes: disk.capacityBytes - cursor,
-      percent: ((disk.capacityBytes - cursor) / disk.capacityBytes) * 100,
-      partition: null,
-      colorIndex: -1,
-    })
+  addGap(BigInt(disk.capacityBytes))
   return segments
 }

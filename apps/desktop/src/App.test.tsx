@@ -8,11 +8,17 @@ import * as native from '@/services/native'
 import type { MenuAction } from '@/services/native'
 
 vi.mock('@/services/devices', () => ({ loadDemoDisks: vi.fn() }))
-vi.mock('@/services/native', () => ({ getAppInfo: vi.fn(), subscribeToMenu: vi.fn() }))
+vi.mock('@/services/native', () => ({
+  getAppInfo: vi.fn(),
+  subscribeToMenu: vi.fn(),
+  isNative: vi.fn(),
+  listDisks: vi.fn(),
+}))
 let menuAction: (action: MenuAction) => void
 const stopListening = vi.fn()
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(native.isNative).mockReturnValue(false)
   vi.mocked(devices.loadDemoDisks).mockResolvedValue(
     structuredClone(fixtures) as Awaited<ReturnType<typeof devices.loadDemoDisks>>,
   )
@@ -25,6 +31,53 @@ beforeEach(() => {
 const nav = (name: string) =>
   within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('button', { name })
 describe('Diskvio workspace', () => {
+  it('uses live inventory in native builds, labels sources, and supports explicit demo switching', async () => {
+    vi.mocked(native.isNative).mockReturnValue(true)
+    vi.mocked(native.listDisks).mockResolvedValue([
+      {
+        ...fixtures[0],
+        id: 'live-0',
+        name: 'Actual disk',
+        serial: null,
+        model: null,
+        partitions: null,
+      },
+    ] as Awaited<ReturnType<typeof native.listDisks>>)
+    const user = userEvent.setup()
+    render(<App />)
+    expect(await screen.findByRole('button', { name: 'Select Actual disk' })).toBeVisible()
+    expect(screen.getByText('LIVE · READ ONLY')).toBeVisible()
+    expect(screen.getByText(/Unallocated space is unknown/)).toBeVisible()
+    expect(devices.loadDemoDisks).not.toHaveBeenCalled()
+    await user.click(nav('Settings'))
+    await user.selectOptions(screen.getByLabelText('Device source'), 'demo')
+    await user.click(nav('Drives'))
+    expect(await screen.findByRole('button', { name: 'Select System Drive' })).toBeVisible()
+    expect(screen.getByText('DEMO DATA')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Select Actual disk' })).not.toBeInTheDocument()
+    await user.click(nav('Settings'))
+    await user.selectOptions(screen.getByLabelText('Device source'), 'live')
+    await user.click(nav('Drives'))
+    await screen.findByRole('button', { name: 'Select Actual disk' })
+    act(() => menuAction('refresh'))
+    await waitFor(() => expect(native.listDisks).toHaveBeenCalledTimes(3))
+  })
+  it('shows missing filesystem and usage honestly and never preselects USB targets', async () => {
+    const disk = structuredClone(fixtures[2])
+    disk.partitions[0].volumes[0].filesystem = null as unknown as string
+    disk.partitions[0].volumes[0].usedBytes = null as unknown as string
+    vi.mocked(devices.loadDemoDisks).mockResolvedValueOnce([disk] as Awaited<
+      ReturnType<typeof devices.loadDemoDisks>
+    >)
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByRole('region', { name: 'Selected device' })
+    expect(screen.getByText('Usage unknown')).toBeVisible()
+    expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0)
+    await user.click(nav('USB Writer'))
+    expect(screen.getByLabelText('Sample USB drive')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Write to USB' })).toBeDisabled()
+  })
   it('labels demo data and preserves selected disk across navigation and refresh', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -58,7 +111,7 @@ describe('Diskvio workspace', () => {
     expect(screen.getByRole('button', { name: 'Write to USB' })).toBeDisabled()
     expect(screen.getByRole('button', { name: /Choose file/ })).toBeDisabled()
     await user.click(nav('Drives'))
-    expect(screen.getByRole('button', { name: 'Select Portable USB' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Select System Drive' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )

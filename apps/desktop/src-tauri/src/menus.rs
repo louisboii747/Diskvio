@@ -11,7 +11,7 @@ pub fn install(app: &App) -> tauri::Result<()> {
         version: Some(String::new()),
         #[cfg(target_os = "macos")]
         short_version: Some(String::new()),
-        comments: Some("Explore sample drives. Your files stay untouched.".into()),
+        comments: Some("Explore your drives. Your files stay untouched.".into()),
         license: Some("MIT".into()),
         ..Default::default()
     };
@@ -34,7 +34,7 @@ pub fn install(app: &App) -> tauri::Result<()> {
         .quit()
         .build()?;
 
-    let refresh = MenuItemBuilder::with_id("refresh", "Reload Sample Drives")
+    let refresh = MenuItemBuilder::with_id("refresh", "Refresh Drives")
         .accelerator("CmdOrCtrl+R")
         .build(app)?;
     let file_builder = SubmenuBuilder::new(app, "File").item(&refresh);
