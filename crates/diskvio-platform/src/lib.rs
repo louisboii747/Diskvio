@@ -112,6 +112,7 @@ fn text(value: Option<String>) -> Option<String> {
     value.map(|v| v.trim().to_owned()).filter(|v| !v.is_empty())
 }
 
+#[cfg(any(target_os = "windows", target_os = "linux", test))]
 fn partition_type(value: Option<&str>) -> Option<String> {
     value.map(
         |v| match v.trim_matches(['{', '}']).to_ascii_lowercase().as_str() {
